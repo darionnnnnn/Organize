@@ -1,4 +1,4 @@
-// sidepanel-utils.js – 側邊欄輔助函式庫，用於優化與增強文字及 HTML 處理
+// Qrganize/sidepanel-utils.js – 側邊欄輔助函式庫，用於優化與增強文字及 HTML 處理
 
 /**
  * HTML 特殊字元轉義函式。
@@ -189,4 +189,62 @@ export function createOutline(html, mainTitle) {
         outline: `<div class="outline-list">${listHTML}</div>`, // 包裹大綱列表的 div
         body: tempWrapper.innerHTML // 返回處理後 (可能移除了重複標題) 的 body HTML
     };
+}
+
+/**
+ * 解析 AI 回應的 JSON 字串，提取結構化的重點。
+ * @param {string} jsonString - AI 回應的 JSON 字串。
+ * @returns {Array|null} - 如果解析成功且結構符合預期，則回傳包含重點物件的陣列。
+ * 如果 JSON 無效，則回傳 null。
+ * 如果 JSON 有效但結構不符，則回傳空陣列。
+ */
+export function parseAIJsonResponse(jsonString) {
+    if (typeof jsonString !== 'string') {
+        console.error("Invalid input to parseAIJsonResponse: not a string.", jsonString);
+        return null;
+    }
+
+    let processingString = jsonString.trim();
+
+    // 步驟 1: 移除 Markdown 程式碼區塊符號
+    if (processingString.startsWith("```json")) {
+        processingString = processingString.substring(7).trimStart();
+    } else if (processingString.startsWith("```")) {
+        processingString = processingString.substring(3).trimStart();
+    }
+
+    if (processingString.endsWith("```")) {
+        processingString = processingString.substring(0, processingString.length - 3).trimEnd();
+    }
+
+    if (!processingString) {
+        console.warn("JSON string is empty after attempting to strip markdown fences.", "\nOriginal string (first 300):", jsonString.substring(0,300));
+        return null;
+    }
+
+    // 步驟 2: 嘗試修復特定的 JSON 字串內部錯誤換行問題
+    // 此正則表達式尋找：一個結束引號、可選的空白、一個換行符、可選的空白、一個開始引號
+    // 然後將其替換為 '\\n' (JSON 字串中合法的換行符)，有效地將兩個字串片段合併。
+    // 例如： "... some text"\n "more text..."  =>  "... some text\\nmore text..."
+    processingString = processingString.replace(/\"\s*\n\s*\"/g, "\\n");
+
+    try {
+        const parsedData = JSON.parse(processingString);
+        if (parsedData && Array.isArray(parsedData.keyPoints)) {
+            return parsedData.keyPoints.filter(p => p && typeof p.title === 'string' && typeof p.details === 'string' && (typeof p.quote === 'string' || typeof p.quote === 'undefined'));
+        }
+        console.warn(
+            "JSON parsed, but not expected structure. Data:", parsedData,
+            "\nOriginal string (first 300):", jsonString.substring(0,300),
+            "\nProcessed string (first 300):", processingString.substring(0,300)
+        );
+        return []; // Return empty array for valid JSON but wrong structure
+    } catch (error) {
+        console.error(
+            "Cannot parse AI response as JSON:", error,
+            "\nProcessed string (first 300 chars):", processingString.substring(0, 300),
+            "\nOriginal string (first 300 chars):", jsonString.substring(0, 300)
+        );
+        return null; // Return null for invalid JSON
+    }
 }

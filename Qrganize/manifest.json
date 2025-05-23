@@ -2,8 +2,16 @@
   "manifest_version": 3,
   "name": "Ollama 本地 AI 網頁重點摘要",
   "description": "擷取網頁主文並用本地 Ollama AI 產生重點摘要，支援問答與自訂設定。",
-  "version": "1.5",
-  "permissions": ["scripting","activeTab","contextMenus","storage","tabs"],
+  "version": "1.7",
+  "permissions": [
+    "scripting",
+    "activeTab",
+    "contextMenus",
+    "storage",
+    "tabs",
+    "clipboardWrite",
+    "offscreen"
+  ],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js" },
   "action": {
@@ -25,7 +33,14 @@
         "sidepanel.html",
         "sidepanel.css",
         "sidepanel-main.js",
-        "sidepanel-utils.js"
+        "sidepanel-utils.js",
+        "sidepanel-config.js",
+        "sidepanel-state.js",
+        "sidepanel-dom.js",
+        "sidepanel-event-handlers.js",
+        "sidepanel-api.js",
+        "offscreen.html",
+        "offscreen.js"
       ],
       "matches": ["<all_urls>"]
     }

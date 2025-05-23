@@ -1,4 +1,4 @@
-/* === sidepanel.css (針對Q&A輸入框和按鈕調整) === */
+/* === sidepanel.css === */
 :root {
     --primary-color: #007bff;       /* 主題藍色 */
     --primary-color-hover: #0056b3; /* 主題藍色懸停 */
@@ -175,15 +175,13 @@ hr#qa-separator.qa-separator {
     margin-top: 0; margin-bottom: 15px;
 }
 
-#qa-list { /* Q&A 列表不再有自己的滾動條 */
+#qa-list {
     padding: 0 15px;
-    /* max-height: 250px; REMOVED */
-    /* overflow-y: auto;  REMOVED */
-    margin-bottom: 20px; /* 增加與下方輸入框的間距 */
+    margin-bottom: 20px;
 }
 .qa-pair { margin-bottom: 15px; }
 .qa-q {
-    background-color: #e0e6ed; /* 調整Q的背景色，與面板背景協調 */
+    background-color: #e0e6ed;
     color: var(--text-primary);
     padding: 10px 14px; border-radius: 6px;
     font-weight: 500; line-height: 1.5; font-size: 0.95em;
@@ -196,6 +194,9 @@ hr#qa-separator.qa-separator {
     padding: 10px 14px; border-radius: 6px;
     margin-top: 6px; line-height: 1.55; font-size: 0.95em;
     white-space: pre-wrap; word-break: break-word;
+    /* Changed to flex for button row alignment */
+    display: flex;
+    flex-direction: column;
 }
 .qa-a h1, .qa-a h2, .qa-a h3, .qa-a h4 {
     margin-top: 12px; margin-bottom: 6px;
@@ -213,12 +214,45 @@ hr#qa-separator.qa-separator {
     color: var(--text-secondary); border-radius: 0 4px 4px 0;
 }
 
+.qa-actions-row {
+    display: flex;
+    flex-wrap: wrap; /* Allow buttons to wrap on smaller widths */
+    gap: 8px;
+    margin-top: 10px; /* Space above the button row */
+    align-items: center;
+}
+
+.qa-actions-row .button-retry,
+.qa-actions-row .qa-action-btn {
+    margin: 0; /* Reset individual margins, gap handles spacing */
+    font-size: 0.85em;
+    padding: 4px 10px;
+    line-height: 1.4; /* Adjust line height for smaller buttons */
+}
+
+.qa-actions-row .qa-action-btn {
+    background-color: #e9ecef;
+    color: #495057;
+    border: 1px solid #ced4da;
+}
+.qa-actions-row .qa-action-btn:hover {
+    background-color: #dee2e6;
+}
+.qa-actions-row .qa-action-btn:disabled {
+    background-color: #f8f9fa;
+    color: #adb5bd;
+    border-color: #e9ecef;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+
 #qa-form {
     display: flex;
-    flex-direction: column; /* 讓輸入框和按鈕垂直排列 */
-    gap: 10px;              /* 輸入框和按鈕之間的間距 */
-    padding: 0 15px;        /* 與 qa-list 左右對齊 */
-    margin-top: 10px;       /* 與 qa-list 的間距 */
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 15px;
+    margin-top: 10px;
 }
 #qa-input {
     width: 100%;
@@ -226,16 +260,15 @@ hr#qa-separator.qa-separator {
     border: 1px solid var(--border-color); border-radius: 6px;
     font-size: 0.95em; font-family: var(--font-sans);
     resize: vertical;
-    min-height: 70px; /* MODIFIED: 讓輸入框預設大一點 */
-    max-height: 180px; /* MODIFIED: 也可適當增加最大高度 */
+    min-height: 70px;
+    max-height: 180px;
 }
 #qa-input:focus {
     outline: none; border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(var(--primary-color), 0.15);
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.15); /* Use primary color with alpha */
 }
 #ask-btn {
-    width: 100%; /* MODIFIED: 按鈕寬度與輸入框一致 */
-    /* align-self: flex-end; REMOVED: 不再需要靠右對齊 */
+    width: 100%;
     padding: 10px 18px;
     border: 1px solid var(--primary-color); background-color: var(--primary-color);
     color: white; border-radius: 6px; cursor: pointer;
@@ -251,6 +284,7 @@ hr#qa-separator.qa-separator {
 .summary-status {
     color: var(--text-tertiary); font-style: italic;
     text-align: center; padding: 25px 15px; font-size: 0.9em;
+    line-height: 1.5;
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -260,3 +294,22 @@ hr#qa-separator.qa-separator {
     border: 2px solid #f0f0f0;
 }
 ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+/* --- Retry Button Styling (Global) --- */
+.button-retry {
+    background-color: var(--primary-color);
+    color: white;
+    border: 1px solid var(--primary-color);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-left: 10px; /* Default margin, can be overridden */
+    font-size: 0.9em;
+    font-style: normal;
+    transition: background-color 0.2s ease;
+    vertical-align: middle;
+}
+.button-retry:hover {
+    background-color: var(--primary-color-hover);
+    border-color: var(--primary-color-hover);
+}
