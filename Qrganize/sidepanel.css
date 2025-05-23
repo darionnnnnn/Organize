@@ -1,0 +1,69 @@
+:root{
+    --primary:#1e88ff;--primary-hover:#0d74e6;
+    --danger:#e24b4b;--danger-hover:#ca3636;
+    --border:#dcdcdc;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;color:#242424}
+body.font-medium{font-size:1.125em}
+body.font-large{font-size:1.25em}
+
+.container{display:flex;flex-direction:column;height:100%}
+
+header{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#fafafa;border-bottom:1px solid var(--border)}
+header h1{flex:1;margin:0;font-size:1.05rem;font-weight:600}
+header button,#ask-btn{padding:4px 12px;border:1px solid var(--border);border-radius:6px;background:#f6f6f6;cursor:pointer;transition:background .15s}
+header button:hover,#ask-btn:hover{background:#ededed}
+button.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+button.primary:hover{background:var(--primary-hover)}
+button.danger{background:var(--danger);border-color:var(--danger);color:#fff}
+button.danger:hover{background:var(--danger-hover)}
+header button:disabled,#ask-btn:disabled{opacity:.4;cursor:not-allowed}
+
+#summary-section{flex:1 1 auto;overflow-y:auto;padding:12px}
+.summary-card{border:1px solid var(--border);border-radius:8px;padding:12px;background:#fff}
+.summary-status{color:#777;margin-bottom:10px;font-size:.93rem}
+
+.qa-pair{margin-bottom:10px;padding-left:10px;border-left:3px solid var(--primary)}
+.qa-q{font-weight:600;margin-bottom:2px}
+.qa-a{white-space:pre-wrap}
+
+#qa-fixed{border-top:1px solid var(--border);padding:10px;background:#fafafa}
+#qa-form{display:flex;flex-direction:column}
+#qa-input{width:100%;resize:vertical;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit}
+#qa-input:disabled{opacity:.5}
+#ask-btn{width:100%;margin-top:6px}
+
+/* Outline */
+.outline-list{margin:0 0 10px 0;padding:8px 10px;border:1px dashed var(--border);border-radius:6px;background:#fcfcfc}
+.outline-list a{display:block;color:var(--primary);text-decoration:none;margin:4px 0}
+.outline-list a:hover{text-decoration:underline}
+
+
+.outline-list{
+    margin-bottom:12px;
+    padding:8px 10px;
+    border:1px dashed var(--border);
+    border-radius:6px;
+    background:#fcfcfc;
+    font-size:.95rem;
+}
+.outline-list a{
+    display:block;
+    color:var(--primary);
+    text-decoration:none;
+    margin:3px 0;
+}
+.outline-list a:hover{text-decoration:underline}
+
+.copy-btn{
+    padding:4px 10px;
+    border:1px solid var(--border);
+    border-radius:6px;
+    background:#f3f3f3;
+    cursor:pointer;
+    margin-bottom:8px;
+    font-size:.85rem;
+}
+.copy-btn:hover{background:#eaeaea}

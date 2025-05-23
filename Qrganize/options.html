@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8">
+    <title>AI 摘要設定</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+    <style>
+        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;margin:0;padding:24px 28px;max-width:640px}
+        h2{margin-top:0}
+        fieldset{border:1px solid #d0d0d0;border-radius:10px;padding:18px;margin-bottom:22px}
+        legend{padding:0 8px;font-weight:700}
+        label{display:inline-flex;align-items:center;margin:6px 12px 6px 0;font-size:.95rem}
+        input[type=text],input[type=number]{width:100%;padding:7px;border:1px solid #ccc;border-radius:6px}
+        .switch{position:relative;width:44px;height:24px;margin-left:8px}
+        .switch input{opacity:0;width:0;height:0}
+        .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:24px;transition:.2s}
+        .slider:before{content:"";position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+        input:checked+.slider{background:#1e88ff}
+        input:checked+.slider:before{transform:translateX(20px)}
+        .btn{padding:9px 26px;border:none;border-radius:8px;font-size:1rem;cursor:pointer}
+        #save{background:#1e88ff;color:#fff;margin-right:10px}
+        #reset{background:#f2f2f2}
+    </style>
+</head>
+<body>
+<h2>AI 摘要設定</h2>
+
+<fieldset>
+    <legend>摘要詳盡程度</legend>
+    <label><input type="radio" name="detail" value="high"> 高</label>
+    <label><input type="radio" name="detail" value="medium"> 中</label>
+    <label><input type="radio" name="detail" value="low"> 低</label>
+</fieldset>
+
+<fieldset>
+    <legend>Ollama API URL</legend>
+    <input type="text" id="apiUrl" placeholder="https://localhost:11434/api">
+</fieldset>
+
+<fieldset>
+    <legend>模型名稱</legend>
+    <input type="text" id="model" placeholder="如：qwen3、llama3:70b ...">
+</fieldset>
+
+<fieldset>
+    <legend>字體大小</legend>
+    <label><input type="radio" name="font" value="small"> 小</label>
+    <label><input type="radio" name="font" value="medium"> 中</label>
+    <label><input type="radio" name="font" value="large"> 大</label>
+</fieldset>
+
+<fieldset>
+    <legend>摘要視窗預設寬度 (px)</legend>
+    <input type="number" id="panelWidth" min="320" max="800">
+</fieldset>
+
+<fieldset>
+    <legend>除錯</legend>
+    <label>顯示錯誤訊息
+        <span class="switch">
+      <input type="checkbox" id="showErr">
+      <span class="slider"></span>
+    </span>
+    </label>
+</fieldset>
+
+<button id="save"  class="btn">儲存</button>
+<button id="reset" class="btn">還原預設</button>
+
+<script src="options.js"></script>
+</body>
+</html>

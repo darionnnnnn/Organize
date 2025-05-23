@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Ollama 本地 AI 網頁重點摘要",
+  "description": "擷取網頁主文並用本地 Ollama AI 產生重點摘要，支援問答與自訂設定。",
+  "version": "1.5",
+  "permissions": ["scripting","activeTab","contextMenus","storage","tabs"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "AI 摘要",
+    "default_icon": { "16":"icon16.png","32":"icon32.png","48":"icon48.png","128":"icon128.png" }
+  },
+  "icons": { "16":"icon16.png","32":"icon32.png","48":"icon48.png","128":"icon128.png" },
+  "options_page": "options.html",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["Readability.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "sidepanel.html",
+        "sidepanel.css",
+        "sidepanel-main.js",
+        "sidepanel-utils.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
