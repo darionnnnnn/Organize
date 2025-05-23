@@ -1,36 +1,38 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="utf-8">
-    <title>AI 內容摘要</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 網頁摘要側邊欄</title>
     <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
-<div class="container">
-
+<div class="panel-container">
     <header>
-        <button id="close-btn">✕</button>
-        <h1 id="summary-title">AI 摘要</h1>
-        <button id="summarize-btn" class="primary">摘要</button>
-        <button id="clear-btn" class="danger">清空</button>
+        <h1 id="summary-title">AI 內容摘要</h1>
+        <div class="header-buttons"> <button id="summarize-btn" title="對目前頁面或選取文字進行摘要">摘要</button>
+            <button id="clear-btn" title="清除目前摘要與問答記錄，或取消進行中任務">清除</button>
+            <button id="close-btn" title="關閉側邊欄">關閉</button>
+        </div>
     </header>
 
-    <section id="summary-section">
-        <div id="summary-content"></div>
-        <hr id="qa-separator" style="display:none">
-        <div id="qa-list"></div>
-    </section>
+    <div id="scrollable-content">
+        <div id="summary-content-wrapper">
+            <div id="summary-content">
+                <div class="summary-status">請按「摘要」開始，或在網頁上選取文字後點擊擴充功能圖示/右鍵選單。</div>
+            </div>
+        </div>
 
-    <div id="qa-fixed">
-        <form id="qa-form" autocomplete="off">
-            <textarea id="qa-input" rows="3" placeholder="詢問更多細節…"></textarea>
-            <button id="ask-btn" class="primary">送出</button>
-        </form>
-    </div>
-
-</div>
-
-<!-- 主程式 (ES Module) -->
-<script type="module" src="sidepanel-main.js"></script>
+        <div id="qa-section-wrapper">
+            <hr id="qa-separator" class="qa-separator" style="display:none;">
+            <div id="qa-list">
+            </div>
+            <form id="qa-form">
+                <textarea id="qa-input" placeholder="針對摘要內容或網頁主題提問..." rows="2"></textarea>
+                <button id="ask-btn" type="submit" title="送出提問">送出</button>
+            </form>
+        </div>
+    </div> </div> <script src="sidepanel-utils.js" type="module"></script>
+<script src="sidepanel-main.js" type="module"></script>
 </body>
 </html>

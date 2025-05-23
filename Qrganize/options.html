@@ -1,72 +1,175 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="utf-8">
-    <title>AI 摘要設定</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
-    <style>
-        body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;margin:0;padding:24px 28px;max-width:640px}
-        h2{margin-top:0}
-        fieldset{border:1px solid #d0d0d0;border-radius:10px;padding:18px;margin-bottom:22px}
-        legend{padding:0 8px;font-weight:700}
-        label{display:inline-flex;align-items:center;margin:6px 12px 6px 0;font-size:.95rem}
-        input[type=text],input[type=number]{width:100%;padding:7px;border:1px solid #ccc;border-radius:6px}
-        .switch{position:relative;width:44px;height:24px;margin-left:8px}
-        .switch input{opacity:0;width:0;height:0}
-        .slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:24px;transition:.2s}
-        .slider:before{content:"";position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
-        input:checked+.slider{background:#1e88ff}
-        input:checked+.slider:before{transform:translateX(20px)}
-        .btn{padding:9px 26px;border:none;border-radius:8px;font-size:1rem;cursor:pointer}
-        #save{background:#1e88ff;color:#fff;margin-right:10px}
-        #reset{background:#f2f2f2}
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 摘要設定與說明</title>
+    <link rel="stylesheet" href="options.css">
 </head>
 <body>
-<h2>AI 摘要設定</h2>
+<div class="container">
+    <header>
+        <h1>Ollama 本地 AI 網頁重點摘要 - 設定與說明</h1>
+    </header>
 
-<fieldset>
-    <legend>摘要詳盡程度</legend>
-    <label><input type="radio" name="detail" value="high"> 高</label>
-    <label><input type="radio" name="detail" value="medium"> 中</label>
-    <label><input type="radio" name="detail" value="low"> 低</label>
-</fieldset>
+    <main>
+        <section id="settings-section" class="settings-card">
+            <h2><span class="icon">⚙️</span> 設定 (Settings)</h2>
+            <form id="settings-form">
+                <div class="form-group">
+                    <label for="detail-medium">摘要詳細程度:</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="detail" value="low" id="detail-low"> 精簡</label>
+                        <label><input type="radio" name="detail" value="medium" id="detail-medium"> 中等</label>
+                        <label><input type="radio" name="detail" value="high" id="detail-high"> 詳細</label>
+                    </div>
+                </div>
 
-<fieldset>
-    <legend>Ollama API URL</legend>
-    <input type="text" id="apiUrl" placeholder="https://localhost:11434/api">
-</fieldset>
+                <div class="form-group">
+                    <label for="apiUrl">Ollama API 位址:</label>
+                    <input type="text" id="apiUrl" name="apiUrl" placeholder="例如: http://localhost:11434/api">
+                    <p class="input-hint">請填寫您的本地 Ollama 服務 API 的基底網址 (通常以 `/api` 結尾，例如 `http://主機IP:端口號/api`)。</p>
+                </div>
 
-<fieldset>
-    <legend>模型名稱</legend>
-    <input type="text" id="model" placeholder="如：qwen3、llama3:70b ...">
-</fieldset>
+                <div class="form-group">
+                    <label for="model">AI 模型名稱:</label>
+                    <input type="text" id="model" name="model" placeholder="例如: qwen2:7b-instruct">
+                    <p class="input-hint">請填寫您希望在 Ollama 中使用的模型名稱 (需已在本地下載，如 `ollama pull model_name`)。</p>
+                </div>
 
-<fieldset>
-    <legend>字體大小</legend>
-    <label><input type="radio" name="font" value="small"> 小</label>
-    <label><input type="radio" name="font" value="medium"> 中</label>
-    <label><input type="radio" name="font" value="large"> 大</label>
-</fieldset>
+                <div class="form-group">
+                    <label for="outputLanguage">AI 輸出語言:</label>
+                    <input type="text" id="outputLanguage" name="outputLanguage" placeholder="例如: 繁體中文, English, 日本語">
+                    <p class="input-hint">指定 AI 回應內容的目標語言。請使用該語言的標準名稱（例如 "繁體中文", "English", "日本語"）。</p>
+                </div>
 
-<fieldset>
-    <legend>摘要視窗預設寬度 (px)</legend>
-    <input type="number" id="panelWidth" min="320" max="800">
-</fieldset>
+                <div class="form-group">
+                    <label for="font-small">側邊欄字體大小:</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="font" value="small" id="font-small"> 小</label>
+                        <label><input type="radio" name="font" value="medium" id="font-medium"> 中 (預設)</label>
+                        <label><input type="radio" name="font" value="large" id="font-large"> 大</label>
+                    </div>
+                    <p class="input-hint">調整側邊摘要面板中顯示文字的相對大小。「中」為標準大小。</p>
+                </div>
 
-<fieldset>
-    <legend>除錯</legend>
-    <label>顯示錯誤訊息
-        <span class="switch">
-      <input type="checkbox" id="showErr">
-      <span class="slider"></span>
-    </span>
-    </label>
-</fieldset>
+                <div class="form-group">
+                    <label for="panelWidth">側邊欄預設寬度 (像素):</label>
+                    <input type="number" id="panelWidth" name="panelWidth" min="320" max="800" step="10">
+                    <p class="input-hint">側邊欄開啟時的寬度，建議範圍 320px - 800px。</p>
+                </div>
 
-<button id="save"  class="btn">儲存</button>
-<button id="reset" class="btn">還原預設</button>
+                <div class="form-group switch-group">
+                    <label for="showErr">顯示詳細錯誤訊息 (含除錯/重試按鈕):</label>
+                    <label class="switch">
+                        <input type="checkbox" id="showErr" name="showErr">
+                        <span class="slider round"></span>
+                    </label>
+                    <p class="input-hint">開啟後，錯誤將顯示更詳細技術資訊，摘要面板也會出現「複製原始內容/回應/Prompt」等除錯按鈕，以及在 AI 呼叫失敗時提供「重試」選項。</p>
+                </div>
 
+                <div class="action-buttons">
+                    <button type="button" id="save" class="button primary">儲存設定</button>
+                    <button type="button" id="reset" class="button danger">恢復預設值</button>
+                    <span id="save-status" class="status-message"></span>
+                </div>
+            </form>
+        </section>
+
+        <hr class="section-divider">
+
+        <section id="help-section" class="help-card">
+            <h2><span class="icon">💡</span> 功能說明 (Features & Usage)</h2>
+
+            <div class="help-category">
+                <h3>一、核心摘要功能</h3>
+                <ul>
+                    <li><strong>自動內文擷取：</strong> 智慧識別並提取網頁主要閱讀內容，過濾廣告、導航等干擾元素。</li>
+                    <li><strong>本地 Ollama AI 整合：</strong> 完全使用您在本地部署的 Ollama 服務及選定模型進行摘要，確保資料隱私與模型選擇的自主性。</li>
+                    <li><strong>結構化摘要呈現：</strong> AI 生成的摘要將以結構化 JSON 格式回傳，並在側邊欄中以下列方式呈現：
+                        <ul>
+                            <li><em>重點標題列表：</em> 清晰列出所有摘要重點的標題，方便快速概覽。</li>
+                            <li><em>點擊導航：</em> 點擊任一標題，即可平滑捲動至下方對應的詳細說明區塊。</li>
+                            <li><em>指定語言輸出：</em> 可在設定中指定 AI 摘要及問答時使用的語言（預設為繁體中文）。</li>
+                            <li><em>摘要中引用原文片段：</em> 為增強摘要的可信度與脈絡，AI 可能會在摘要重點的詳細說明中，引用一小段直接相關的原文片段。這些引用的文字會有特殊樣式標註，以利區分。</li>
+                        </ul>
+                    </li>
+                    <li><strong>選取文字即時摘要：</strong> 在網頁上選取任意文字片段，透過右鍵選單或擴充功能圖示，即可對選定範圍進行快速摘要。</li>
+                    <li><strong>摘要內容限制：</strong> AI 被引導專注於原始文本中明確提到的信息，避免過度延伸，並根據原文長短調整摘要篇幅。</li>
+                    <li><strong>原始文章查閱：</strong> 摘要生成後，您可以在摘要卡片下方找到「<span class="toggle-icon-example">▼</span> 原始文章內容」的按鈕（**預設為收合狀態**），點擊即可展開或收合由擴充功能擷取的網頁原文，方便對照參考。</li>
+                    <li><strong>除錯與重試輔助：</strong> 當在設定中開啟「顯示詳細錯誤訊息」時：
+                        <ul>
+                            <li>摘要面板會額外提供「複製摘要Prompt」、「複製原始回應」及「複製原始內容」按鈕。</li>
+                            <li>若 AI 呼叫（摘要或問答）失敗，會在錯誤訊息旁提供「重試」按鈕。</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="help-category">
+                <h3>二、互動問答 (Q&A)</h3>
+                <ul>
+                    <li><strong>基於上下文的精準問答：</strong> 您可以針對目前網頁主題、已生成的 AI 摘要重點，以及先前的問答歷史進行提問。AI 被引導嚴格基於這些提供的上下文來回答，避免無關的延伸。</li>
+                    <li><strong>指定語言問答：</strong> AI 將以您在設定中指定的語言回答您的提問。</li>
+                    <li><strong>Markdown 格式回答：</strong> AI 會使用 Markdown 語法（例如各級標題、項目符號列表等）來排版其回答，經處理後以豐富格式呈現，提升可讀性。問答中若引用上下文，也會以特殊樣式呈現。</li>
+                    <li><strong>對話歷史保留：</strong> 問答記錄會顯示在側邊欄中，方便回顧。</li>
+                    <li><strong>統一滾動體驗：</strong> 摘要內容與整個 Q&A 區塊（包含歷史記錄和輸入框）均在同一個可滾動區域內，操作流暢。</li>
+                    <li><strong>問答錯誤重試：</strong> 若問答過程中 AI 回應失敗，且「顯示詳細錯誤訊息」已開啟，對應的問答條目旁會出現「重試」按鈕。</li>
+                </ul>
+            </div>
+
+            <div class="help-category">
+                <h3>三、操作方式</h3>
+                <ul>
+                    <li><strong>擴充功能圖示 (瀏覽器工具列按鈕)：</strong> 點擊此圖示可開啟側邊摘要面板，並自動對當前分頁進行摘要。</li>
+                    <li><strong>右鍵選單：</strong>
+                        <ul>
+                            <li>於網頁任一處點擊右鍵，選擇「AI 摘要（全文或選取）」即可觸發。若已選取文字，則摘要選取部分；否則摘要當前頁面全文。</li>
+                            <li>於擴充功能圖示上點擊右鍵（或在某些瀏覽器中是左鍵點擊後出現的選單），選擇「設定 (Settings)」即可進入此設定頁面。</li>
+                        </ul>
+                    </li>
+                    <li><strong>側邊欄主要按鈕：</strong>
+                        <ul>
+                            <li><em>摘要 (Summarize)：</em> 手動觸發對當前頁面或選取文字的摘要。</li>
+                            <li><em>全部清除 (Clear/Cancel)：</em> 清除側邊欄中現有的摘要、問答記錄及已展開的原始文章；若 AI 正在處理主要摘要請求，則可取消該請求。</li>
+                            <li><em>關閉 (Close)：</em> 關閉側邊摘要面板。</li>
+                            <li><em>複製原始回應 (Copy Raw Response)：</em> (需開啟「顯示詳細錯誤」) 複製 AI 模型未經處理的原始 JSON 格式回應字串。</li>
+                            <li><em>複製原始內容 (Copy Source Text)：</em> (需開啟「顯示詳細錯誤」) 複製擴充功能從網頁擷取的原始文本內容。</li>
+                            <li><em>複製摘要Prompt (Copy Summary Prompt)：</em> (需開啟「顯示詳細錯誤」) 複製用於生成當前摘要的完整提示語 (Prompt) 內容。</li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+            <div class="help-category">
+                <h3>四、自訂設定選項 (詳見上方表單)</h3>
+                <p>您可以透過上方的設定表單，自訂以下選項以符合您的使用習慣：</p>
+                <ul>
+                    <li>摘要內容的詳細程度 (精簡/中等/詳細)。</li>
+                    <li>您的本地 Ollama API 服務位址。</li>
+                    <li>希望使用的 Ollama AI 模型名稱。</li>
+                    <li>AI 輸出內容的語言 (例如：繁體中文、English)。</li>
+                    <li>側邊摘要面板的預設字體大小 (小/中/大，中為標準)。</li>
+                    <li>側邊摘要面板的預設寬度。</li>
+                    <li>是否在發生錯誤時顯示更詳細的技術訊息（並啟用除錯及重試按鈕）。</li>
+                </ul>
+            </div>
+
+            <div class="help-category">
+                <h3>五、技術提示與需求</h3>
+                <ul>
+                    <li><strong>本地 Ollama 環境：</strong> 您必須已在您的電腦上成功安裝並運行 Ollama 服務。</li>
+                    <li><strong>AI 模型準備：</strong> 請確保在「AI 模型名稱」設定中指定的模型，已經透過 Ollama 指令 (如 `ollama pull your_model_name`) 下載至您的本地 Ollama 環境中。</li>
+                    <li><strong>API 連線：</strong> 擴充功能需要能夠成功連線到您所設定的「Ollama API 位址」。</li>
+                    <li><strong>UTF-8 編碼：</strong> 為確保最佳相容性與顯示效果，建議您的作業系統、瀏覽器以及所瀏覽的網頁均優先使用 UTF-8 編碼。本擴充功能所有相關檔案（HTML, CSS, JS）均使用 UTF-8 編碼儲存。</li>
+                    <li><strong>內容擷取限制：</strong> 對於結構極端複雜或大量依賴 JavaScript 動態載入內容的網頁，主要內文的擷取效果可能會受到一定限制。</li>
+                </ul>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Ollama 本地 AI 網頁重點摘要 v1.8 (錯誤處理與UI優化)</p> </footer>
+</div>
 <script src="options.js"></script>
 </body>
 </html>
