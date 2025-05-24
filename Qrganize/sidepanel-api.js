@@ -1,7 +1,7 @@
 // Qrganize/sidepanel-api.js
 import { stripThink, esc as escapeHTML } from "./sidepanel-utils.js";
 import { getConfig, getChatUrl, getLevelText } from "./sidepanel-config.js";
-import { S } from "./sidepanel-state.js"; // <--- 新增此行來匯入 S
+import { S } from "./sidepanel-state.js";
 
 // fetchAI 函式 (保持不變)
 export async function fetchAI(promptText, userSignal = null) {
@@ -83,7 +83,7 @@ export async function fetchAI(promptText, userSignal = null) {
     }
 }
 
-// buildSummaryPrompt 函式 (使用您先前版本中，我提供的包含詳細JSON轉義說明的版本)
+// buildSummaryPrompt 函式 (保持不變)
 export function buildSummaryPrompt(title, content) {
     const cfg = getConfig();
     const levelText = getLevelText();
@@ -127,7 +127,7 @@ JSON 輸出範例如下（請嚴格遵守此結構，不要添加額外註解或
 `;
 }
 
-// summarizeContent 函式 (現在 S() 應該是定義好的)
+// summarizeContent 函式 (保持不變)
 export async function summarizeContent(title, content, abortSignal) {
     const prompt = buildSummaryPrompt(title, content);
     S().lastSummaryPrompt = prompt; // Store the prompt in state
@@ -135,13 +135,13 @@ export async function summarizeContent(title, content, abortSignal) {
     return stripThink(rawAIResponse);
 }
 
-// buildQAPrompt 函式 (保持不變)
+// buildQAPrompt 函式 (已修改)
 export function buildQAPrompt(question, pageTitle, qaHistory, summaryKeyPoints, pageSourceText) {
     const cfg = getConfig();
     let contextString = `關於網頁「${pageTitle || '未知標題'}」的內容。\n`;
 
     if (summaryKeyPoints && summaryKeyPoints.length > 0) {
-        contextString += "該網頁的AI摘要重點如下：\n";
+        contextString += "該網頁的AI摘要重點如下 (這些摘要是基於下方提供的完整原始內容產生的)：\n";
         summaryKeyPoints.forEach(p => {
             const detailSnippet = p.details.length > 100 ? p.details.substring(0, 100) + "..." : p.details;
             contextString += `- ${p.title}: ${detailSnippet}\n`;
@@ -151,8 +151,12 @@ export function buildQAPrompt(question, pageTitle, qaHistory, summaryKeyPoints, 
             }
         });
         contextString += "\n";
-    } else if (pageSourceText && pageSourceText.length > 0) {
-        contextString += `原始文本的片段如下(約前300字元)：\n${pageSourceText.substring(0,300)}...\n\n`;
+    }
+
+    if (pageSourceText && pageSourceText.length > 0) {
+        contextString += `以下是該網頁的完整原始內容，請優先根據此內容來回答問題：\n--- 原始內容開始 ---\n${pageSourceText}\n--- 原始內容結束 ---\n\n`;
+    } else if (!summaryKeyPoints || summaryKeyPoints.length === 0) {
+        contextString += `(注意：目前沒有提供網頁的詳細原始內容或AI摘要資訊來回答您的問題。)\n\n`;
     }
 
     const relevantHistory = qaHistory.slice(0, -1).filter(h => h.a !== "…").slice(-2);
@@ -164,8 +168,11 @@ export function buildQAPrompt(question, pageTitle, qaHistory, summaryKeyPoints, 
         });
     }
 
-    return `請嚴格根據以下提供的「上下文資訊」來回答「使用者的問題」。您的回答應直接針對問題，並僅限於從上下文中獲取的資訊。請勿使用任何上下文以外的知識，也不要進行延伸推測或給出與上下文無關的建議。如果問題無法從上下文中找到答案，請直接表明「根據目前提供的資訊，我無法回答這個問題。」或類似的說法。
-請使用 Markdown 語法來排版您的回答，例如使用「#」、「##」、「###」來表示不同層級的標題，使用「-」或「*」開頭表示列表項。
+    // 修改點: 調整 AI 回覆時的措辭
+    return `請直接回答「使用者的問題」。您的回答應僅限於從以下提供的「上下文資訊」中獲取的內容。請勿使用任何上下文以外的知識，也不要進行延伸推測或給出與上下文無關的建議。
+如果問題的答案在「上下文資訊」中未提及，請直接表明無法回答，例如說「我找不到相關資訊來回答這個問題。」或類似的說法。
+您的回答必須是純文字，請勿使用任何 Markdown 標記語言 (例如：井號標題、星號或減號列表、粗體、斜體等)。
+如果回答的內容較長，您可以考慮使用簡單的點列方式來呈現，例如每個點列項獨立一行並以 "-" (減號加一個空格) 開頭。如果回答不長，則直接以段落文字呈現即可，無需特別排版。
 請用「${cfg.outputLanguage}」回答。
 
 ---上下文資訊開始---
