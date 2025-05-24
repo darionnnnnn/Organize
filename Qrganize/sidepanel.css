@@ -313,3 +313,45 @@ hr#qa-separator.qa-separator {
     background-color: var(--primary-color-hover);
     border-color: var(--primary-color-hover);
 }
+
+.loading-animation {
+    display: flex;
+    align-items: center;
+    justify-content: center; /* Center the dots if text is removed */
+    height: 20px; /* Give it some height */
+    margin: 10px 0; /* Add some margin like a normal text line */
+}
+
+.loading-animation::before,
+.loading-animation::after,
+.loading-animation div {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background-color: var(--text-tertiary); /* Use a theme color */
+    border-radius: 50%;
+    margin: 0 3px; /* Space out the dots */
+    animation: loading-dots 1.4s infinite ease-in-out both;
+}
+
+.loading-animation div {
+    /* This is the middle dot */
+    animation-delay: 0.16s;
+}
+
+.loading-animation::after {
+    /* This is the third dot */
+    animation-delay: 0.32s;
+}
+
+@keyframes loading-dots {
+    0%, 80%, 100% {
+        transform: scale(0.5); /* Smaller dot */
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1); /* Normal size dot */
+        opacity: 1;
+    }
+}

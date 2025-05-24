@@ -255,7 +255,12 @@ export function drawQA(qaHistory, onRetryCallback) {
             qaActionsHTML += `</div>`;
         }
 
-        const answerContent = (typeof a === 'string') ? cleanAI(a) : esc(String(a));
+        let answerContent;
+        if (a === "正在等待 Ollama AI 回覆...") {
+            answerContent = '<div class="loading-animation"></div>';
+        } else {
+            answerContent = (typeof a === 'string') ? cleanAI(a) : esc(String(a));
+        }
 
         return `
             <div class="qa-pair" data-q-id="${q_id}">

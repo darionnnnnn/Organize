@@ -36,7 +36,7 @@ export function initEventHandlers(runSummarizeFn) {
         const questionEntry = {
             q: questionText,
             q_id: Date.now(),
-            a: "…", // Placeholder for answer
+            a: "正在等待 Ollama AI 回覆...", // Placeholder for answer
             qa_prompt: null,
             qa_raw_ai_response: null
         };
