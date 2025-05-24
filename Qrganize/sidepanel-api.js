@@ -3,10 +3,8 @@ import { stripThink, esc as escapeHTML } from "./sidepanel-utils.js";
 import { getConfig, getChatUrl, getLevelText } from "./sidepanel-config.js";
 import { S } from "./sidepanel-state.js";
 
-// fetchAI 函式 (保持不變)
 export async function fetchAI(promptText, userSignal = null) {
     const cfg = getConfig();
-    const chatUrl = getChatUrl();
     const abortCtrl = new AbortController();
     const combinedSignal = abortCtrl.signal;
     let timeoutId = null;
@@ -15,6 +13,7 @@ export async function fetchAI(promptText, userSignal = null) {
 
     if (timeoutMs && timeoutMs > 0) {
         timeoutId = setTimeout(() => {
+            // Use a custom reason object for better identification
             abortCtrl.abort(new DOMException('TimeoutError', `TimeoutError (${cfg.aiTimeout}s)`));
         }, timeoutMs);
     }
@@ -32,53 +31,130 @@ export async function fetchAI(promptText, userSignal = null) {
         userSignal.addEventListener('abort', handleUserAbort, { once: true });
     }
 
+    // Combined signal listener also cleans up the user signal listener
     combinedSignal.addEventListener('abort', () => {
         if (timeoutId) clearTimeout(timeoutId);
         if (userSignal) userSignal.removeEventListener('abort', handleUserAbort);
     }, { once: true });
 
-    const payload = { model: cfg.model, messages: [ { role: "user", content: promptText } ], stream: false };
+    let url;
+    const method = "POST"; // Common for all relevant providers
+    let headers = { "Content-Type": "application/json" }; // Base headers
+    let bodyPayload;
+    let parseFn; // Function to parse the successful JSON response
+
+    switch (cfg.aiProvider) {
+        case "ollama":
+            url = getChatUrl(); // Already full path like .../api/chat
+            bodyPayload = { model: cfg.model, messages: [{ role: "user", content: promptText }], stream: false };
+            parseFn = (json) => {
+                if (typeof json?.message?.content === 'string') {
+                    return json.message.content;
+                }
+                const errorText = "AI server response for Ollama is missing expected content path (message.content).";
+                let detail = "";
+                if (cfg.showErr) { detail = ` (Received: ${escapeHTML(JSON.stringify(json).substring(0, 200))}...)`; }
+                throw new Error(`${errorText}${detail}`);
+            };
+            break;
+        case "openai":
+            url = getChatUrl(); // Full chat completions URL e.g. https://api.openai.com/v1/chat/completions
+            headers["Authorization"] = `Bearer ${cfg.apiKey}`;
+            bodyPayload = { model: cfg.model, messages: [{ role: "user", content: promptText }] };
+            // stream: false is default for openai if not specified
+            parseFn = (json) => {
+                if (typeof json?.choices?.[0]?.message?.content === 'string') {
+                    return json.choices[0].message.content;
+                }
+                const errorText = "AI server response for OpenAI is missing expected content path (choices[0].message.content).";
+                let detail = "";
+                if (cfg.showErr) { detail = ` (Received: ${escapeHTML(JSON.stringify(json).substring(0, 200))}...)`; }
+                throw new Error(`${errorText}${detail}`);
+            };
+            break;
+        case "googleai": // Gemini
+            // getChatUrl() provides the base, e.g., https://generativelanguage.googleapis.com
+            url = `${getChatUrl()}/v1beta/models/${cfg.model}:generateContent?key=${cfg.apiKey}`;
+            bodyPayload = { contents: [{ parts: [{ "text": promptText }] }] };
+            // No Authorization header, API key is in URL
+            parseFn = (json) => {
+                if (typeof json?.candidates?.[0]?.content?.parts?.[0]?.text === 'string') {
+                    return json.candidates[0].content.parts[0].text;
+                }
+                const errorText = "AI server response for Google AI (Gemini) is missing expected content path (candidates[0].content.parts[0].text).";
+                let detail = "";
+                if (cfg.showErr) { detail = ` (Received: ${escapeHTML(JSON.stringify(json).substring(0, 200))}...)`; }
+                throw new Error(`${errorText}${detail}`);
+            };
+            break;
+        case "grokai": // Groq API (OpenAI compatible)
+            url = getChatUrl(); // Full chat completions URL e.g. https://api.groq.com/openai/v1/chat/completions
+            headers["Authorization"] = `Bearer ${cfg.apiKey}`;
+            bodyPayload = { model: cfg.model, messages: [{ role: "user", content: promptText }], temperature: 0.7 }; // Added temperature as example
+            parseFn = (json) => {
+                if (typeof json?.choices?.[0]?.message?.content === 'string') {
+                    return json.choices[0].message.content;
+                }
+                const errorText = "AI server response for Grok AI is missing expected content path (choices[0].message.content).";
+                let detail = "";
+                if (cfg.showErr) { detail = ` (Received: ${escapeHTML(JSON.stringify(json).substring(0, 200))}...)`; }
+                throw new Error(`${errorText}${detail}`);
+            };
+            break;
+        default:
+            // Cleanup before throwing error for unsupported provider
+            if (timeoutId) clearTimeout(timeoutId);
+            if (userSignal) userSignal.removeEventListener('abort', handleUserAbort);
+            throw new Error(`Unsupported AI provider: ${cfg.aiProvider}`);
+    }
 
     try {
-        const res = await fetch(chatUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
+        const res = await fetch(url, {
+            method: method,
+            headers: headers,
+            body: JSON.stringify(bodyPayload),
             signal: combinedSignal
         });
 
+        // Clear timeout and remove user signal listener as soon as fetch promise resolves or rejects
         if (timeoutId) clearTimeout(timeoutId);
-        if (userSignal) userSignal.removeEventListener('abort', handleUserAbort);
+        if (userSignal) userSignal.removeEventListener('abort', handleUserAbort); // Redundant due to combinedSignal listener, but safe
 
         if (!res.ok) {
-            const responseBodyText = await res.text().catch(() => "");
-            let errorMsgText = `HTTP ${res.status} ${res.statusText}`;
+            const responseBodyText = await res.text().catch(() => ""); // Try to get error body
+            let errorMsgText = `HTTP error ${res.status} ${res.statusText}`;
             if (cfg.showErr && responseBodyText) {
-                const htmlErrorMatch = responseBodyText.match(/<center><h1>(.*?)<\/h1>/i);
-                const extractedError = htmlErrorMatch && htmlErrorMatch[1] ? escapeHTML(htmlErrorMatch[1]) : escapeHTML(responseBodyText.substring(0,100) + "...");
+                // Attempt to extract a user-friendly error from HTML (e.g. Nginx gateway error) or use first 100 chars
+                const htmlErrorMatch = responseBodyText.match(/<title>(.*?)<\/title>/i) || responseBodyText.match(/<center><h1>(.*?)<\/h1>/i);
+                const extractedError = htmlErrorMatch && htmlErrorMatch[1] ? escapeHTML(htmlErrorMatch[1]) : escapeHTML(responseBodyText.substring(0, 100) + (responseBodyText.length > 100 ? "..." : ""));
                 errorMsgText += ` - ${extractedError}`;
             }
             throw new Error(errorMsgText);
         }
 
         const rawResponseText = await res.text();
-        const jsonResponse = JSON.parse(rawResponseText);
-
-        if (typeof jsonResponse?.message?.content === 'string') {
-            return jsonResponse.message.content;
-        } else {
-            const errorText = "AI 伺服器回應中缺少 'message.content' 或其非字串";
+        let jsonResponse;
+        try {
+            jsonResponse = JSON.parse(rawResponseText);
+        } catch (parseError) {
+            const errorText = "Failed to parse AI server response as JSON.";
             let detail = "";
-            if (cfg.showErr) { detail = ` (實際回應: ${escapeHTML(JSON.stringify(jsonResponse).substring(0, 200))})`;}
+            if (cfg.showErr) { detail = ` (Received: ${escapeHTML(rawResponseText.substring(0, 200))}...)`; }
             throw new Error(`${errorText}${detail}`);
         }
+        
+        return parseFn(jsonResponse); // Use the provider-specific parsing function
+
     } catch (e) {
+        // Ensure cleanup in case of any error not caught by specific listeners
         if (timeoutId) clearTimeout(timeoutId);
         if (userSignal) userSignal.removeEventListener('abort', handleUserAbort);
 
-        if (e.name === 'TimeoutError') {
-            throw new Error(`請求超時 (超過 ${cfg.aiTimeout} 秒)`);
+        // Check if the error is due to our timeout
+        if (combinedSignal.aborted && combinedSignal.reason instanceof DOMException && combinedSignal.reason.name === 'TimeoutError') {
+            throw new Error(`請求超時 (超過 ${cfg.aiTimeout} 秒).`);
         }
+        // For other AbortErrors (e.g. user abort), or any other error
         throw e;
     }
 }

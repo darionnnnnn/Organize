@@ -26,9 +26,32 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="apiUrl">Ollama API 位址:</label>
+                    <label for="aiProvider">AI 提供者:</label>
+                    <select id="aiProvider" name="aiProvider">
+                        <option value="ollama">Ollama (本地)</option>
+                        <option value="openai">OpenAI</option>
+                        <option value="googleai">Google AI (Gemini)</option>
+                        <option value="grokai">Groq API (Grok, Llama, etc.)</option>
+                    </select>
+                    <p class="input-hint">選擇您要使用的 AI 服務。</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="apiUrl">API 位址 / 端點:</label>
                     <input type="text" id="apiUrl" name="apiUrl" placeholder="例如: http://localhost:11434/api">
-                    <p class="input-hint">請填寫您的本地 Ollama 服務 API 的基底網址 (通常以 `/api` 結尾)。</p>
+                    <p class="input-hint">請填寫服務的基底 API 位址。例如: Ollama (http://localhost:11434/api), OpenAI (https://api.openai.com/v1), Google AI (https://generativelanguage.googleapis.com), Groq API (https://api.groq.com/openai/v1).</p>
+                </div>
+
+                <div class="form-group" id="apiKeyFormGroup" style="display: none;">
+                    <label for="apiKey">API 金鑰:</label>
+                    <input type="password" id="apiKey" name="apiKey">
+                    <p class="input-hint">請填寫您的 API 金鑰。此金鑰將安全儲存，僅用於向您選擇的 AI 服務發送請求。</p>
+                </div>
+
+                <!-- New Test Connection Button and Status Area -->
+                <div class="form-group"> 
+                    <button type="button" id="testConnectionBtn" class="button">測試連線</button>
+                    <span id="connectionStatus" class="status-message" style="margin-left: 10px;"></span>
                 </div>
 
                 <div class="form-group">
@@ -151,23 +174,39 @@
                 <h3>四、自訂設定選項 (詳見上方表單)</h3>
                 <p>您可以透過上方的設定表單，自訂以下選項以符合您的使用習慣：</p>
                 <ul>
-                    <li>摘要內容的詳細程度 (精簡/中等/詳細)。</li>
-                    <li>您的本地 Ollama API 服務位址。</li>
-                    <li>希望使用的 Ollama AI 模型名稱。</li>
-                    <li>AI 輸出內容的語言 (例如：繁體中文、English)。</li>
-                    <li>側邊摘要面板的預設字體大小 (小/中/大，中為標準)。</li>
-                    <li>側邊摘要面板的預設寬度。</li>
-                    <li>AI 請求的超時時間（單位：秒）。</li>
-                    <li>是否在發生錯誤時顯示更詳細的技術訊息（並啟用除錯及重試按鈕）。</li>
+                    <li><strong>AI 提供者 (AI Provider)：</strong>您可以選擇使用本地運行的 Ollama 服務，或是外部的 OpenAI、Google AI (Gemini) 或 Groq API 服務。Ollama 完全在本地處理，不需 API 金鑰；其他外部服務則需要 API 金鑰。</li>
+                    <li><strong>API 位址 / 端點 (API URL / Endpoint)：</strong>根據所選的 AI 提供者，填寫對應的 API 位址。
+                        <ul>
+                            <li>Ollama：通常是 <code>http://localhost:11434</code> 或 <code>http://localhost:11434/api</code>。擴充功能會自動處理後續路徑。</li>
+                            <li>OpenAI：請填寫 API 的基礎位址，通常是 <code>https://api.openai.com/v1</code>。</li>
+                            <li>Google AI (Gemini)：請填寫 API 的基礎位址，例如 <code>https://generativelanguage.googleapis.com</code>。</li>
+                            <li>Groq API：請填寫 API 的基礎位址，例如 <code>https://api.groq.com/openai/v1</code>。</li>
+                        </ul>
+                        <p class="input-hint" style="font-size: 0.85em; margin-top: 5px;">提示：API 位址通常不包含模型名稱或 `/chat/completions` 等特定操作路徑，除非該服務有此特殊要求。請參考上方輸入框的提示範例。</p>
+                    </li>
+                    <li><strong>API 金鑰 (API Key)：</strong>若選擇 OpenAI、Google AI 或 Groq API，則需要在此處填寫您的 API 金鑰。此金鑰通常可以在您註冊的對應 AI 服務供應商的官方網站帳戶管理頁面或開發者設定中找到。API 金鑰將安全地儲存在您的瀏覽器擴充功能設定中。</li>
+                    <li><strong>重要 - 外部服務費用：</strong>請注意，當使用 OpenAI、Google AI 或 Groq API 等外部雲端 AI 服務時，您將需要自行負擔可能產生的 API 使用費用。這些費用由各服務供應商根據其定價策略收取，與本擴充功能無關。Ollama 本地服務則無此費用。</li>
+                    <li><strong>測試連線按鈕：</strong>在輸入 API 位址（以及 API 金鑰，如適用時）後，您可以使用「測試連線」按鈕來快速確認擴充功能是否能成功連接到您選擇的 AI 服務。測試結果會顯示在按鈕旁。</li>
+                    <li><strong>AI 模型名稱 (AI Model Name)：</strong>請填寫您希望使用的 AI 模型具體名稱。例如 Ollama 的 <code>qwen2:7b-instruct</code>，OpenAI 的 <code>gpt-3.5-turbo</code>，Google AI 的 <code>gemini-1.5-flash-latest</code>，或 Groq API 支援的 <code>llama3-8b-8192</code> 等。請確保所選的 AI 提供者能夠存取此模型（例如，Ollama 模型需已在本地下載，外部服務模型需在您的帳戶權限內可用）。</li>
+                    <li><strong>摘要詳細程度 (Summary Detail Level)：</strong>選擇 AI 生成摘要的詳細程度 (精簡/中等/詳細)。</li>
+                    <li><strong>AI 輸出語言 (AI Output Language)：</strong>指定 AI 回應內容的目標語言 (例如：繁體中文, English, 日本語)。</li>
+                    <li><strong>側邊欄字體大小 (Sidebar Font Size)：</strong>調整側邊摘要面板中顯示文字的相對大小 (小/中/大，中為標準)。</li>
+                    <li><strong>側邊欄預設寬度 (Sidebar Default Width)：</strong>側邊欄開啟時的寬度（像素值），建議範圍 320px - 800px。</li>
+                    <li><strong>AI請求超時時間 (AI Request Timeout)：</strong>向 AI 發送請求的等待超時時間（單位：秒）。預設 120 秒。</li>
+                    <li><strong>顯示詳細錯誤訊息 (Show Detailed Errors)：</strong>開啟後，錯誤將顯示更詳細技術資訊，並啟用除錯及重試按鈕。</li>
                 </ul>
             </div>
 
             <div class="help-category">
                 <h3>五、技術提示與需求</h3>
                 <ul>
-                    <li><strong>本地 Ollama 環境：</strong> 您必須已在您的電腦上成功安裝並運行 Ollama 服務。</li>
-                    <li><strong>AI 模型準備：</strong> 請確保在「AI 模型名稱」設定中指定的模型，已經透過 Ollama 指令 (如 `ollama pull your_model_name`) 下載至您的本地 Ollama 環境中。</li>
-                    <li><strong>API 連線：</strong> 擴充功能需要能夠成功連線到您所設定的「Ollama API 位址」。 同時，背景服務會定期 (每20秒) ping Ollama API 的 `/api/tags` 端點以嘗試保持連線。</li>
+                    <li><strong>AI 服務環境：</strong>
+                        <ul>
+                            <li>若使用 <strong>Ollama</strong>：您必須已在您的電腦上成功安裝並運行 Ollama 服務。請確保在「AI 模型名稱」設定中指定的模型，已經透過 Ollama 指令 (如 `ollama pull your_model_name`) 下載至您的本地 Ollama 環境中。背景服務會定期 (每20秒) ping Ollama API 的 `/api/tags` 端點以嘗試保持連線 (僅當 Ollama 為選定提供者時)。</li>
+                            <li>若使用 <strong>OpenAI, Google AI, Groq API</strong>：您需要擁有對應服務的有效帳戶及 API 金鑰。請確保您輸入的 API 位址及金鑰正確無誤，且您的帳戶有權限使用您在「AI 模型名稱」中指定的模型。</li>
+                        </ul>
+                    </li>
+                    <li><strong>API 連線：</strong> 擴充功能需要能夠成功連線到您所設定的「API 位址 / 端點」。您可以使用「測試連線」按鈕進行檢查。</li>
                     <li><strong>UTF-8 編碼：</strong> 為確保最佳相容性與顯示效果，建議您的作業系統、瀏覽器以及所瀏覽的網頁均優先使用 UTF-8 編碼。本擴充功能所有相關檔案（HTML, CSS, JS）均使用 UTF-8 編碼儲存。</li>
                     <li><strong>內容擷取限制：</strong> 對於結構極端複雜或大量依賴 JavaScript 動態載入內容的網頁，主要內文的擷取效果可能會受到一定限制。</li>
                     <li><strong>超時設定：</strong> 若經常遇到 504 Gateway Time-out 錯誤，除了檢查 Ollama 服務效能，也可嘗試在此設定頁面中適當增加「AI請求超時時間」。但請注意，前端超時無法解決後端伺服器 (如 Nginx) 本身的超時問題。</li>

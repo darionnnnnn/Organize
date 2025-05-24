@@ -2,13 +2,15 @@
 
 const defaultConfig = {
     detail: "medium",
-    apiUrl: "https://192.168.68.103/api", // 更新以匹配 options.js 的預設值
-    model: "qwen3", // 更新以匹配 options.js 的預設值
+    apiUrl: "http://localhost:11434/api", // Default for Ollama, base path
+    model: "qwen2:7b-instruct",
     font: "medium",
     outputLanguage: "繁體中文",
     panelWidth: 420,
     aiTimeout: 120, // Default AI timeout 120 seconds
-    showErr: false
+    showErr: false,
+    aiProvider: "ollama", // Added: AI Provider
+    apiKey: "" // Added: API Key
 };
 
 let currentConfig = { ...defaultConfig };
@@ -19,14 +21,45 @@ export async function loadConfig() {
         chrome.storage.sync.get(defaultConfig, (loadedCfg) => {
             currentConfig = { ...defaultConfig, ...loadedCfg };
 
-            let endpoint = currentConfig.apiUrl.trim();
-            const lowerApiUrl = endpoint.toLowerCase();
-            if (!lowerApiUrl.endsWith('/chat') && !lowerApiUrl.endsWith('/chat/')) {
-                endpoint = endpoint.replace(/\/+$/, '') + '/chat';
+            // Determine currentChatUrl based on provider and apiUrl
+            const provider = currentConfig.aiProvider;
+            let apiUrl = currentConfig.apiUrl.trim().replace(/\/+$/, ''); // Trim and remove trailing slashes
+
+            if (provider === "ollama") {
+                // Ensure Ollama URL ends with /api/chat
+                // Handles: http://host:port, http://host:port/api, http://host:port/api/chat
+                if (apiUrl.toLowerCase().endsWith("/api/chat")) {
+                    currentChatUrl = apiUrl;
+                } else if (apiUrl.toLowerCase().endsWith("/api")) {
+                    currentChatUrl = apiUrl + "/chat";
+                } else {
+                    // Assuming it's a base URL like http://localhost:11434
+                    currentChatUrl = apiUrl + "/api/chat";
+                }
+            } else if (provider === "openai") {
+                // User provides the full chat completions URL
+                // e.g., https://api.openai.com/v1/chat/completions
+                currentChatUrl = apiUrl;
+            } else if (provider === "googleai") {
+                // User provides the base URL
+                // e.g., https://generativelanguage.googleapis.com
+                // Path components like /v1beta/models/... are added in sidepanel-api.js
+                currentChatUrl = apiUrl;
+            } else if (provider === "grokai") {
+                // User provides the full chat completions URL
+                // e.g., https://api.groq.com/openai/v1/chat/completions
+                currentChatUrl = apiUrl;
             } else {
-                endpoint = endpoint.replace(/\/+$/, '');
+                // Fallback: Default to Ollama-like behavior or just use apiUrl if provider is unknown
+                console.warn(`Unknown AI provider: ${provider}. Defaulting to Ollama URL structure.`);
+                if (apiUrl.toLowerCase().endsWith("/api/chat")) {
+                    currentChatUrl = apiUrl;
+                } else if (apiUrl.toLowerCase().endsWith("/api")) {
+                    currentChatUrl = apiUrl + "/chat";
+                } else {
+                    currentChatUrl = apiUrl + "/api/chat";
+                }
             }
-            currentChatUrl = endpoint;
 
             // 確保 body 存在才操作 classList
             if (document.body) {

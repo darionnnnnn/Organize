@@ -66,25 +66,48 @@ function openPanel(tab, selectionText = "") {
     );
 }
 
-function getApiUrl(callback) {
-    chrome.storage.sync.get({ apiUrl: "http://localhost:11434/api" }, ({ apiUrl }) => { // Default updated for common Ollama
-        callback(apiUrl);
-    });
-}
+// Removed getApiUrl function as its logic is incorporated into keepAliveInterval
 
 const keepAliveInterval = setInterval(() => {
-    getApiUrl(apiUrl => {
-        if (!apiUrl || !(apiUrl.startsWith("http://") || apiUrl.startsWith("https://"))) {
-            return;
+    // Get both apiUrl and aiProvider from storage
+    chrome.storage.sync.get(
+        { 
+            apiUrl: "http://localhost:11434/api", // Default API URL
+            aiProvider: "ollama" // Default AI provider
+        }, 
+        ({ apiUrl, aiProvider }) => {
+            // Only perform keep-alive if the provider is ollama
+            if (aiProvider === "ollama") {
+                if (!apiUrl || !(apiUrl.startsWith("http://") || apiUrl.startsWith("https://"))) {
+                    // console.debug("Keep-alive: Invalid API URL for Ollama.");
+                    return;
+                }
+                
+                // Construct the /api/tags endpoint robustly
+                let pingUrlBase = apiUrl.replace(/\/api\/tags$/, "").replace(/\/api$/, "").replace(/\/$/, "");
+                
+                if (!pingUrlBase.endsWith('/api')) {
+                    pingUrlBase = pingUrlBase + '/api';
+                }
+                const pingUrl = pingUrlBase + '/tags';
+
+                fetch(pingUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            // console.debug(`Keep-alive ping for Ollama failed with status: ${response.status}`);
+                        } else {
+                            // console.debug("Ollama keep-alive ping successful.");
+                        }
+                    })
+                    .catch(err => {
+                        // console.debug("Keep-alive ping for Ollama failed:", err.message);
+                    });
+            } else {
+                // console.debug(`Keep-alive skipped, provider is: ${aiProvider}`);
+            }
         }
-        // Ensure API URL doesn't already end with /api or /api/tags
-        let pingUrl = apiUrl.replace(/\/api\/tags$/, "").replace(/\/api$/, "").replace(/\/$/, "");
-        fetch(`${pingUrl}/api/tags`)
-            .catch(err => {
-                // console.debug("保持連線 Ping 失敗 (Keep-alive ping failed):", err.message);
-            });
-    });
-}, 20000);
+    );
+}, 20000); // Interval time remains 20 seconds
 
 // --- Offscreen Document Logic ---
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
