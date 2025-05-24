@@ -50,11 +50,3 @@ export function getChatUrl() {
 export function getLevelText() {
     return ({ high: "詳細", medium: "中等", low: "精簡" }[currentConfig.detail] || "中等");
 }
-
-// 此 errMsg 函式目前未在專案其他地方被直接呼叫，但其邏輯是存在的。
-// 若要使用，建議直接在呼叫處根據 getConfig().showErr 來組裝錯誤訊息。
-export function errMsg(error) {
-    console.error("側邊欄執行時發生錯誤:", error);
-    const messageText = error.message || "未知錯誤";
-    return currentConfig.showErr ? `❗ ${messageText}` : "⚠️ 處理過程中發生錯誤";
-}

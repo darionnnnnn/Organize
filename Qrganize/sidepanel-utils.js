@@ -130,67 +130,6 @@ export function cleanAI(src) {
     return outputLines.join("\n"); // 將處理後的各行HTML合併回一個字串
 }
 
-
-/**
- * (此函式 createOutline 在目前的 JSON 結構化摘要流程中未被 sidepanel-main.js 直接使用，
- * 其功能已被新的、基於 JSON 的重點列表生成邏輯所取代。
- * 但基於它是您原始碼的一部分，予以保留並加入註解，以供未來可能的其他用途或參考。)
- * * 從一段 HTML 內容中提取主要的標題元素 (h1-h3, strong, b)，並依此產生一個大綱列表的 HTML。
- * 它同時會嘗試從輸入的 HTML 中移除與 `mainTitle` 參數內容相同的第一個主要標題元素，以避免重複顯示。
- * * @param {string} html - 包含內容的原始 HTML 字串。
- * @param {string} mainTitle - 網頁或摘要的主標題，用於比對並嘗試移除重複。
- * @returns {{outline: string, body: string}} - 一個物件，包含：
- * `outline`: 代表大綱列表的 HTML 字串 (例如 <div class="outline-list"><a href="...">...</a>...</div>)。
- * `body`: 經過處理後 (可能移除了重複標題) 的原始 HTML 字串。
- */
-export function createOutline(html, mainTitle) {
-    // 檢查是否在瀏覽器環境 (因為使用了 DOM API)
-    if (typeof document === 'undefined') {
-        // console.warn("createOutline: 'document' is not available in this context (e.g., Service Worker). Returning original HTML.");
-        return { outline: "", body: html }; // 在非瀏覽器環境，直接回傳原始 HTML
-    }
-
-    const tempWrapper = document.createElement("div"); // 創建一個暫存的 div 容器來解析 HTML 字串
-    tempWrapper.innerHTML = html;
-
-    // 嘗試移除與頁面主標題 (mainTitle) 重複的摘要內第一個大標題
-    const firstHeadingCandidate = tempWrapper.querySelector("h1,h2,h3,strong,b");
-    if (firstHeadingCandidate && mainTitle &&
-        typeof firstHeadingCandidate.textContent === 'string' && // 確保 textContent 存在且為字串
-        firstHeadingCandidate.textContent.trim() === mainTitle.trim()) {
-        firstHeadingCandidate.remove(); // 若找到重複且內容相符，則移除該元素
-    }
-
-    // 搜集所有可作為大綱項目的標題元素 (h1, h2, h3, strong, b)
-    const headings = [...tempWrapper.querySelectorAll("h1,h2,h3,strong,b")];
-    if (headings.length === 0) {
-        return { outline: "", body: tempWrapper.innerHTML }; // 若沒有找到任何可作為大綱的元素
-    }
-
-    // 為每個找到的標題元素設定唯一的 ID，以便大綱連結可以跳轉
-    headings.forEach((h, i) => (h.id = `generated-outline-sec-${i}`));
-
-    // 產生大綱列表的 HTML 內容
-    const listHTML = headings
-        .map((h, i) => {
-            const textContent = h.textContent ? h.textContent.trim() : ""; // 獲取並清理標題文字
-            // 只有當標題文字有效時才產生連結
-            return textContent ? `<a href="#generated-outline-sec-${i}">${esc(textContent)}</a>` : "";
-        })
-        .filter(item => item) // 過濾掉可能因 textContent 為空而產生的空連結字串
-        .join(""); // 將所有連結合併成一個 HTML 字串
-
-    // 如果最終沒有產生任何有效的大綱連結 (例如所有標題都為空)
-    if (!listHTML.trim()) {
-        return { outline: "", body: tempWrapper.innerHTML };
-    }
-
-    return {
-        outline: `<div class="outline-list">${listHTML}</div>`, // 包裹大綱列表的 div
-        body: tempWrapper.innerHTML // 返回處理後 (可能移除了重複標題) 的 body HTML
-    };
-}
-
 /**
  * 解析 AI 回應的 JSON 字串，提取結構化的重點。
  * @param {string} jsonString - AI 回應的 JSON 字串。

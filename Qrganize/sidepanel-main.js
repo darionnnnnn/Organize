@@ -80,13 +80,16 @@ async function runSummarize(selectionText = "") {
         }
 
         if (structuredSummary === null) {
-            let errorMsg = "⚠️ AI 回應的 JSON 格式無效。";
+            let errorMsg = "⚠️ AI 回應的 JSON 格式無效。"; // Default for cfg.showErr = true, to be overwritten
             if (cfg.showErr) {
                 errorMsg = `⚠️ AI 回應的 JSON 格式無效 (可能因內容過長被截斷或結構不完整)。${StateAccessor().summaryRawAI && StateAccessor().summaryRawAI.trim() ? '詳情請見主控台。' : 'AI 未回傳任何內容。'}`;
+            } else {
+                // This is the new part for when showErr is false
+                errorMsg = "⚠️ AI 回應的 JSON 格式無效。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
             }
             console.log("[Sidepanel Main] Rendering error state for invalid JSON. Type of StateAccessor before renderErrorState:", typeof StateAccessor);
             renderErrorState(errorMsg, () => {
-                console.log("[Sidepanel Main] Retry (invalid JSON) callback executing. Type of StateAccessor:", typeof StateAccessor);
+                // ... (rest of the callback remains the same)
                 if (typeof StateAccessor !== 'function') {
                     console.error("CRITICAL: StateAccessor undefined in retry (invalid JSON) callback!");
                     alert("Retry failed: StateAccessor (S) is undefined in retry callback (E1)!");
@@ -105,8 +108,15 @@ async function runSummarize(selectionText = "") {
             else if (StateAccessor().summaryRawAI.trim().match(/^\{\s*("keyPoints"\s*:\s*\[\s*\])\s*\}$/)) { noPointsMessage = "AI 回應了 JSON 但未包含任何重點。"; }
 
             console.log("[Sidepanel Main] Rendering error state for no key points. Type of StateAccessor before renderErrorState:", typeof StateAccessor);
+            let noPointsFullMessage = noPointsMessage;
+            if (!cfg.showErr) {
+                noPointsFullMessage += " 開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
+            } else if (StateAccessor().summaryRawAI && StateAccessor().summaryRawAI.trim()) {
+                noPointsFullMessage += " (原始回應已記錄於主控台)";
+            }
             renderErrorState(
-                noPointsMessage + (cfg.showErr && StateAccessor().summaryRawAI && StateAccessor().summaryRawAI.trim() ? " (原始回應已記錄於主控台)" : ""),
+                noPointsFullMessage,
+                // ... retry callback (ensure the callback is correctly passed)
                 () => {
                     console.log("[Sidepanel Main] Retry (no key points) callback executing. Type of StateAccessor:", typeof StateAccessor);
                     if (typeof StateAccessor !== 'function') {
@@ -132,7 +142,7 @@ async function runSummarize(selectionText = "") {
         if (error.name === "AbortError") {
             displayMessage = "❌ 已取消摘要";
         } else {
-            displayMessage = cfg.showErr ? `❗ ${esc(error.message || "未知摘要錯誤")}` : "⚠️ 處理摘要時發生錯誤";
+            displayMessage = cfg.showErr ? `❗ ${esc(error.message || "未知摘要錯誤")}` : "⚠️ 處理摘要時發生錯誤。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
         }
 
         // This is line 87 from your original error trace

@@ -52,11 +52,14 @@ export async function fetchAI(promptText, userSignal = null) {
 
         if (!res.ok) {
             const responseBodyText = await res.text().catch(() => "");
-            let errorMsgText = `HTTP ${res.status} ${res.statusText}`;
-            if (cfg.showErr && responseBodyText) {
+            let errorMsgText; // Declared here
+            if (cfg.showErr) {
                 const htmlErrorMatch = responseBodyText.match(/<center><h1>(.*?)<\/h1>/i);
                 const extractedError = htmlErrorMatch && htmlErrorMatch[1] ? escapeHTML(htmlErrorMatch[1]) : escapeHTML(responseBodyText.substring(0,100) + "...");
-                errorMsgText += ` - ${extractedError}`;
+                // For showErr, append the extracted error to the basic HTTP status
+                errorMsgText = `HTTP ${res.status} ${res.statusText}${extractedError ? ' - ' + extractedError : ''}`;
+            } else {
+                errorMsgText = `AI 伺服器請求失敗 (HTTP ${res.status} ${res.statusText})。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。`;
             }
             throw new Error(errorMsgText);
         }
@@ -67,10 +70,13 @@ export async function fetchAI(promptText, userSignal = null) {
         if (typeof jsonResponse?.message?.content === 'string') {
             return jsonResponse.message.content;
         } else {
-            const errorText = "AI 伺服器回應中缺少 'message.content' 或其非字串";
-            let detail = "";
-            if (cfg.showErr) { detail = ` (實際回應: ${escapeHTML(JSON.stringify(jsonResponse).substring(0, 200))})`;}
-            throw new Error(`${errorText}${detail}`);
+            let errorToThrow;
+            if (cfg.showErr) {
+                errorToThrow = `AI 伺服器回應中缺少 'message.content' 或其非字串 (實際回應: ${escapeHTML(JSON.stringify(jsonResponse).substring(0, 200))})`;
+            } else {
+                errorToThrow = "AI 伺服器回應格式錯誤。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
+            }
+            throw new Error(errorToThrow);
         }
     } catch (e) {
         if (timeoutId) clearTimeout(timeoutId);
@@ -203,15 +209,15 @@ export async function getArticleContent() {
         }
         chrome.runtime.sendMessage({ type: "EXTRACT_ARTICLE" }, response => {
             if (chrome.runtime.lastError) {
-                return reject(new Error(cfg.showErr ? `無法連接到內容腳本: ${chrome.runtime.lastError.message}` : "無法取得內容"));
+                return reject(new Error(cfg.showErr ? `無法連接到內容腳本: ${chrome.runtime.lastError.message}` : "無法取得內容。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。"));
             }
             if (response && typeof response.text === 'string' && typeof response.title === 'string') {
                 resolve(response);
             } else if (response && response.error) {
-                reject(new Error(cfg.showErr ? `提取內容錯誤: ${response.error}`: "無法取得內容"));
+                reject(new Error(cfg.showErr ? `提取內容錯誤: ${response.error}`: "無法取得內容。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。"));
             }
             else {
-                reject(new Error(cfg.showErr ? "內容腳本回傳的資料格式不正確或為空" : "無法取得內容"));
+                reject(new Error(cfg.showErr ? "內容腳本回傳的資料格式不正確或為空" : "無法取得內容。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。"));
             }
         });
     });
