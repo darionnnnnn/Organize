@@ -2,8 +2,8 @@
 
 const defaultConfig = {
     detail: "medium",
-    apiUrl: "https://192.168.68.103/api", // 更新以匹配 options.js 的預設值
-    model: "qwen3", // 更新以匹配 options.js 的預設值
+    apiUrl: "https://localhost/api/chat", // 更新以匹配 options.js 的預設值
+    model: "ollama", // 更新以匹配 options.js 的預設值
     font: "medium",
     outputLanguage: "繁體中文",
     panelWidth: 420,

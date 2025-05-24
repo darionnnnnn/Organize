@@ -260,7 +260,7 @@ export function drawQA(qaHistory, onRetryCallback) {
         }
 
         let answerContent;
-        if (a === "正在等待 Ollama AI 回覆...") {
+        if (a === "正在等待 AI 回覆...") {
             answerContent = '<div class="loading-animation"></div>';
         } else {
             answerContent = (typeof a === 'string') ? cleanAI(a) : esc(String(a));

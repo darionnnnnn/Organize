@@ -1,7 +1,7 @@
 // Qrganize/sidepanel-main.js
 import { esc, parseAIJsonResponse } from "./sidepanel-utils.js";
 import { loadConfig, getConfig } from "./sidepanel-config.js";
-import { S as StateAccessor, resetState } from "./sidepanel-state.js"; // Renamed S to StateAccessor for clarity in logs
+import { S as StateAccessor, resetState } from "./sidepanel-state.js"; // 為了日誌清晰度，將 S 重命名為 StateAccessor
 import {
     elements,
     updateTitle,
@@ -21,23 +21,23 @@ import {
 } from "./sidepanel-api.js";
 import { initEventHandlers } from "./sidepanel-event-handlers.js";
 
-console.log("[Sidepanel Main] Module loaded. Type of StateAccessor:", typeof StateAccessor, StateAccessor);
+console.log("[Sidepanel Main] 模組已載入。 StateAccessor 的類型：", typeof StateAccessor, StateAccessor);
 if (typeof StateAccessor !== 'function') {
-    alert("CRITICAL ERROR: StateAccessor (S) is not loaded correctly in sidepanel-main.js! Please check imports and sidepanel-state.js.");
-    console.error("CRITICAL ERROR: StateAccessor (S) is not a function at module load time in sidepanel-main.js!");
+    alert("嚴重錯誤：StateAccessor (S) 未在 sidepanel-main.js 中正確載入！請檢查匯入和 sidepanel-state.js。");
+    console.error("嚴重錯誤：在 sidepanel-main.js 模組載入時，StateAccessor (S) 不是一個函式！");
 }
 
 async function runSummarize(selectionText = "") {
-    console.log("[Sidepanel Main] runSummarize called. Type of StateAccessor at start:", typeof StateAccessor);
+    console.log("[Sidepanel Main] runSummarize 已呼叫。開始時 StateAccessor 的類型：", typeof StateAccessor);
     if (typeof StateAccessor !== 'function') {
-        console.error("[Sidepanel Main] ERROR in runSummarize: StateAccessor is not a function!");
-        // Fallback or display critical error to user
+        console.error("[Sidepanel Main] runSummarize 中發生錯誤：StateAccessor 不是一個函式！");
+        // 後備或向使用者顯示嚴重錯誤
         renderErrorState("❗嚴重錯誤：內部狀態函式遺失(S1)", null);
         return;
     }
 
     if (StateAccessor().running) {
-        console.log("[Sidepanel Main] Summary already running, returning.");
+        console.log("[Sidepanel Main] 摘要已在執行中，正在返回。");
         return;
     }
 
@@ -52,8 +52,8 @@ async function runSummarize(selectionText = "") {
     showLoadingState("截取文章中…");
 
     try {
-        console.log("[Sidepanel Main] runSummarize: In try block. Type of StateAccessor:", typeof StateAccessor);
-        if (typeof StateAccessor !== 'function') console.error("CRITICAL: StateAccessor became undefined before API calls in try block!");
+        console.log("[Sidepanel Main] runSummarize: 位於 try 區塊。 StateAccessor 的類型：", typeof StateAccessor);
+        if (typeof StateAccessor !== 'function') console.error("嚴重：在 try 區塊中 API 呼叫之前 StateAccessor 變為 undefined！");
 
 
         const article = selectionText
@@ -80,26 +80,26 @@ async function runSummarize(selectionText = "") {
         }
 
         if (structuredSummary === null) {
-            let errorMsg = "⚠️ AI 回應的 JSON 格式無效。"; // Default for cfg.showErr = true, to be overwritten
+            let errorMsg = "⚠️ AI 回應的 JSON 格式無效。"; // cfg.showErr = true 時的預設值，將被覆寫
             if (cfg.showErr) {
                 errorMsg = `⚠️ AI 回應的 JSON 格式無效 (可能因內容過長被截斷或結構不完整)。${StateAccessor().summaryRawAI && StateAccessor().summaryRawAI.trim() ? '詳情請見主控台。' : 'AI 未回傳任何內容。'}`;
             } else {
-                // This is the new part for when showErr is false
+                // 這是 showErr 為 false 時的新增部分
                 errorMsg = "⚠️ AI 回應的 JSON 格式無效。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
             }
-            console.log("[Sidepanel Main] Rendering error state for invalid JSON. Type of StateAccessor before renderErrorState:", typeof StateAccessor);
+            console.log("[Sidepanel Main] 正在為無效的 JSON 呈現錯誤狀態。在 renderErrorState 之前 StateAccessor 的類型：", typeof StateAccessor);
             renderErrorState(errorMsg, () => {
-                // ... (rest of the callback remains the same)
+                // ... (其餘的回呼函式保持不變)
                 if (typeof StateAccessor !== 'function') {
-                    console.error("CRITICAL: StateAccessor undefined in retry (invalid JSON) callback!");
-                    alert("Retry failed: StateAccessor (S) is undefined in retry callback (E1)!");
+                    console.error("嚴重：在重試 (無效 JSON) 的回呼函式中 StateAccessor 為 undefined！");
+                    alert("重試失敗：StateAccessor (S) 在重試回呼 (E1) 中未定義！");
                     renderErrorState("❗重試失敗：內部狀態函式遺失(S2)", null);
                     return;
                 }
                 runSummarize(StateAccessor().lastRunSelectionText);
             });
         } else if (structuredSummary.length > 0) {
-            // Pass the retry callback creator for summary specific retry.
+            // 為摘要特定的重試傳遞重試回呼建立器。
             renderSummary(structuredSummary, summaryButtonsHTML, StateAccessor().summarySourceText);
         } else {
             let noPointsMessage = "AI 未能從內容中提取結構化重點。";
@@ -107,7 +107,7 @@ async function runSummarize(selectionText = "") {
             else if (StateAccessor().summaryRawAI.trim() === "{}") { noPointsMessage = "AI 回應了空的 JSON 物件。"; }
             else if (StateAccessor().summaryRawAI.trim().match(/^\{\s*("keyPoints"\s*:\s*\[\s*\])\s*\}$/)) { noPointsMessage = "AI 回應了 JSON 但未包含任何重點。"; }
 
-            console.log("[Sidepanel Main] Rendering error state for no key points. Type of StateAccessor before renderErrorState:", typeof StateAccessor);
+            console.log("[Sidepanel Main] 正在為沒有重點的情況呈現錯誤狀態。在 renderErrorState 之前 StateAccessor 的類型：", typeof StateAccessor);
             let noPointsFullMessage = noPointsMessage;
             if (!cfg.showErr) {
                 noPointsFullMessage += " 開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
@@ -116,12 +116,12 @@ async function runSummarize(selectionText = "") {
             }
             renderErrorState(
                 noPointsFullMessage,
-                // ... retry callback (ensure the callback is correctly passed)
+                // ... 重試回呼 (確保回呼已正確傳遞)
                 () => {
-                    console.log("[Sidepanel Main] Retry (no key points) callback executing. Type of StateAccessor:", typeof StateAccessor);
+                    console.log("[Sidepanel Main] 重試 (無重點) 回呼執行中。 StateAccessor 的類型：", typeof StateAccessor);
                     if (typeof StateAccessor !== 'function') {
-                        console.error("CRITICAL: StateAccessor undefined in retry (no key points) callback!");
-                        alert("Retry failed: StateAccessor (S) is undefined in retry callback (E2)!");
+                        console.error("嚴重：在重試 (無重點) 的回呼函式中 StateAccessor 為 undefined！");
+                        alert("重試失敗：StateAccessor (S) 在重試回呼 (E2) 中未定義！");
                         renderErrorState("❗重試失敗：內部狀態函式遺失(S3)", null);
                         return;
                     }
@@ -130,11 +130,11 @@ async function runSummarize(selectionText = "") {
             );
         }
     } catch (error) {
-        console.error("摘要執行期間錯誤 (Caught in runSummarize):", error);
-        console.log("[Sidepanel Main] In catch block. Type of StateAccessor:", typeof StateAccessor);
+        console.error("摘要執行期間錯誤 (在 runSummarize 中捕獲)：", error);
+        console.log("[Sidepanel Main] 位於 catch 區塊。 StateAccessor 的類型：", typeof StateAccessor);
         if (typeof StateAccessor !== 'function') {
-            console.error("CRITICAL: StateAccessor undefined in catch block itself!");
-            alert("Catch block error: StateAccessor (S) is undefined (E3)!");
+            console.error("嚴重：在 catch 區塊本身 StateAccessor 為 undefined！");
+            alert("Catch 區塊錯誤：StateAccessor (S) 未定義 (E3)！");
         }
 
         const cfg = getConfig();
@@ -145,36 +145,36 @@ async function runSummarize(selectionText = "") {
             displayMessage = cfg.showErr ? `❗ ${esc(error.message || "未知摘要錯誤")}` : "⚠️ 處理摘要時發生錯誤。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
         }
 
-        // This is line 87 from your original error trace
+        // 這是您原始錯誤追蹤中的第 87 行
         renderErrorState(displayMessage, () => {
-            console.log("[Sidepanel Main] Retry (general error) callback executing. Type of StateAccessor:", typeof StateAccessor, "Error that led here:", error); // Log S here
+            console.log("[Sidepanel Main] 重試 (一般錯誤) 回呼執行中。 StateAccessor 的類型：", typeof StateAccessor, "導致此處的錯誤：", error); // 在此記錄 S
             if (typeof StateAccessor !== 'function') {
-                console.error("CRITICAL: StateAccessor IS UNDEFINED in the retry callback for general error (line 87 context)!");
-                alert("Retry failed: StateAccessor (S) is undefined in retry callback (E4)!");
-                // If S is gone, we can't even get lastRunSelectionText. We might need to pass it explicitly.
+                console.error("嚴重：在一般錯誤的重試回呼中 (第 87 行上下文)，StateAccessor 未定義！");
+                alert("重試失敗：StateAccessor (S) 在重試回呼 (E4) 中未定義！");
+                // 如果 S 消失了，我們甚至無法獲取 lastRunSelectionText。我們可能需要明確傳遞它。
                 renderErrorState("❗重試失敗：內部狀態函式遺失(S4)", null);
                 return;
             }
             runSummarize(StateAccessor().lastRunSelectionText);
         });
     } finally {
-        console.log("[Sidepanel Main] In finally block. Type of StateAccessor:", typeof StateAccessor);
-        if (typeof StateAccessor === 'function') { // Check before using
+        console.log("[Sidepanel Main] 位於 finally 區塊。 StateAccessor 的類型：", typeof StateAccessor);
+        if (typeof StateAccessor === 'function') { // 使用前檢查
             StateAccessor().running = false;
             StateAccessor().currentAbortController = null;
         } else {
-            console.error("[Sidepanel Main] StateAccessor is undefined in finally block, cannot reset state.running");
+            console.error("[Sidepanel Main] StateAccessor 在 finally 區塊中為 undefined，無法重設 state.running");
         }
         setSummarizeButtonState(false);
     }
 }
 
 async function initialize() {
-    console.log("[Sidepanel Main] Initializing. Type of StateAccessor at init:", typeof StateAccessor);
+    console.log("[Sidepanel Main] 初始化中。初始時 StateAccessor 的類型：", typeof StateAccessor);
     await loadConfig();
     resetUI();
     initEventHandlers(runSummarize);
-    console.log("[Sidepanel Main] Side panel initialized with config:", getConfig());
+    console.log("[Sidepanel Main] 側邊面板已使用設定初始化：", getConfig());
     parent.postMessage({ type: "PANEL_READY" }, "*");
 }
 

@@ -4,8 +4,8 @@ const $ = s => document.querySelector(s);
 // 預設設定值
 const defaults = {
     detail: "medium",
-    apiUrl: "https://192.168.68.103/api", // 您的預設 API URL
-    model:  "qwen3", // 您的預設模型
+    apiUrl: "https://localhost/api/chat", // 您的預設 API URL
+    model:  "ollama", // 您的預設模型
     font:   "medium",
     outputLanguage: "繁體中文",
     panelWidth: 420,

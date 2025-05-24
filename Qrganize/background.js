@@ -51,7 +51,7 @@ function openPanel(tab, selectionText = "") {
         },
         () => {
             if (chrome.runtime.lastError) {
-                console.error("腳本注入失敗 (toggle-panel.js):", chrome.runtime.lastError.message);
+                console.error("腳本注入失敗 (toggle-panel.js)：", chrome.runtime.lastError.message);
                 return;
             }
             chrome.tabs.sendMessage(tab.id, {
@@ -59,7 +59,7 @@ function openPanel(tab, selectionText = "") {
                 text: selectionText
             }, (response) => {
                 if (chrome.runtime.lastError) {
-                    console.warn(`訊息傳遞失敗 (SUMMARY_SELECTED_TEXT to tab ${tab.id}):`, chrome.runtime.lastError.message);
+                    console.warn(`訊息傳遞失敗 (SUMMARY_SELECTED_TEXT 至分頁 ${tab.id})：`, chrome.runtime.lastError.message);
                 }
             });
         }
@@ -67,7 +67,7 @@ function openPanel(tab, selectionText = "") {
 }
 
 function getApiUrl(callback) {
-    chrome.storage.sync.get({ apiUrl: "http://localhost:11434/api" }, ({ apiUrl }) => { // Default updated for common Ollama
+    chrome.storage.sync.get({ apiUrl: "http://localhost:11434/api" }, ({ apiUrl }) => { // 預設值已更新為常見的 Ollama 位址
         callback(apiUrl);
     });
 }
@@ -77,16 +77,16 @@ const keepAliveInterval = setInterval(() => {
         if (!apiUrl || !(apiUrl.startsWith("http://") || apiUrl.startsWith("https://"))) {
             return;
         }
-        // Ensure API URL doesn't already end with /api or /api/tags
+        // 確保 API URL 不以 /api 或 /api/tags 結尾
         let pingUrl = apiUrl.replace(/\/api\/tags$/, "").replace(/\/api$/, "").replace(/\/$/, "");
         fetch(`${pingUrl}/api/tags`)
             .catch(err => {
-                // console.debug("保持連線 Ping 失敗 (Keep-alive ping failed):", err.message);
+                // console.debug("保持連線 Ping 失敗：", err.message);
             });
     });
 }, 20000);
 
-// --- Offscreen Document Logic ---
+// --- 離屏文件邏輯 ---
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
 
 async function hasOffscreenDocument() {
@@ -97,28 +97,28 @@ async function hasOffscreenDocument() {
         });
         return !!contexts.length;
     }
-    console.warn("chrome.runtime.getContexts is not available.");
-    return false; // Fallback, assume no
+    console.warn("chrome.runtime.getContexts 不可用。");
+    return false; // 後備方案，假設沒有
 }
 
 async function createOffscreenDocument() {
     if (await hasOffscreenDocument()) {
-        console.log("Offscreen document already exists.");
+        console.log("離屏文件已存在。");
         return;
     }
     try {
-        console.log("Attempting to create offscreen document...");
+        console.log("嘗試建立離屏文件...");
         await chrome.offscreen.createDocument({
             url: OFFSCREEN_DOCUMENT_PATH,
             reasons: [chrome.offscreen.Reason.CLIPBOARD],
-            justification: 'Needed for copying text to the clipboard securely due to iframe restrictions.',
+            justification: '由於 iframe 限制，需要此文件來安全地複製文字到剪貼簿。',
         });
-        console.log("Offscreen document created successfully or creation initiated.");
+        console.log("離屏文件已成功建立或已啟動建立程序。");
     } catch (error) {
         if (error.message.includes("Only a single offscreen document may be created")) {
-            console.warn("Offscreen document creation failed as one already exists (or is being created):", error.message);
+            console.warn("離屏文件建立失敗，因為已存在一個 (或正在建立中)：", error.message);
         } else {
-            console.error("Error creating offscreen document:", error);
+            console.error("建立離屏文件時發生錯誤：", error);
         }
     }
 }
@@ -128,8 +128,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (sender.tab && sender.tab.id) {
             chrome.tabs.sendMessage(sender.tab.id, { type: "EXTRACT_ARTICLE" }, (response) => {
                 if (chrome.runtime.lastError) {
-                    console.warn(`轉發 EXTRACT_ARTICLE 請求至內容腳本 (tabId: ${sender.tab.id}) 失敗:`, chrome.runtime.lastError.message);
-                    sendResponse({ error: "轉發請求至內容腳本失敗: " + chrome.runtime.lastError.message });
+                    console.warn(`轉發 EXTRACT_ARTICLE 請求至內容腳本 (分頁ID: ${sender.tab.id}) 失敗：`, chrome.runtime.lastError.message);
+                    sendResponse({ error: "轉發請求至內容腳本失敗：" + chrome.runtime.lastError.message });
                 } else {
                     sendResponse(response);
                 }
@@ -144,32 +144,32 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         (async () => {
             try {
                 await createOffscreenDocument();
-                // It might take a moment for the offscreen document to be ready to receive messages.
-                // A more robust solution would involve a handshake (offscreen sends "ready" message).
-                // For now, a small delay or hoping it's ready quickly.
-                // Let's try sending immediately; offscreen.js's listener should be set up quickly.
+                // 離屏文件可能需要一些時間才能準備好接收訊息。
+                // 一個更穩健的解決方案會包含交握機制 (離屏文件傳送 "ready" 訊息)。
+                // 目前採用短暫延遲，或期望它能快速準備就緒。
+                // 我們嘗試立即傳送；offscreen.js 的監聽器應該會很快設定完成。
 
-                // Add a small delay to allow offscreen document to initialize listener
+                // 加入短暫延遲以允許離屏文件初始化監聽器
                 await new Promise(resolve => setTimeout(resolve, 150));
 
 
                 const responseFromOffscreen = await chrome.runtime.sendMessage({
                     type: 'copy-to-clipboard',
-                    target: 'offscreen', // Target the offscreen script
+                    target: 'offscreen', // 指定目標為離屏腳本
                     data: msg.data
                 });
                 sendResponse(responseFromOffscreen);
             } catch (error) {
-                console.error("Background: Error during copy-data-to-clipboard message relay:", error);
-                // Try to check if offscreen document exists if messaging fails
+                console.error("背景腳本：在 copy-data-to-clipboard 訊息轉發過程中發生錯誤：", error);
+                // 如果訊息傳送失敗，嘗試檢查離屏文件是否存在
                 if (!await hasOffscreenDocument()) {
-                    console.error("Background: Offscreen document does not seem to exist when trying to send message.");
+                    console.error("背景腳本：嘗試傳送訊息時，離屏文件似乎不存在。");
                 }
-                sendResponse({ success: false, error: error.message || "Failed to process copy request in background." });
+                sendResponse({ success: false, error: error.message || "背景腳本處理複製請求失敗。" });
             }
         })();
         return true;
     }
-    // For any other synchronous message types:
+    // 對於任何其他同步訊息類型：
     return false;
 });
