@@ -3,8 +3,8 @@ import { stripThink, esc as escapeHTML } from "./sidepanel-utils.js";
 import { getConfig, getChatUrl, getLevelText } from "./sidepanel-config.js";
 import { S } from "./sidepanel-state.js";
 
-// fetchAI 函式 (保持不變)
-export async function fetchAI(promptText, userSignal = null) {
+// fetchAI 函式 (已修改)
+export async function fetchAI(promptText, userSignal = null, onChunkCallback = null) {
     const cfg = getConfig();
     const chatUrl = getChatUrl();
     const abortCtrl = new AbortController();
@@ -37,7 +37,7 @@ export async function fetchAI(promptText, userSignal = null) {
         if (userSignal) userSignal.removeEventListener('abort', handleUserAbort);
     }, { once: true });
 
-    const payload = { model: cfg.model, messages: [ { role: "user", content: promptText } ], stream: false };
+    const payload = { model: cfg.model, messages: [ { role: "user", content: promptText } ], stream: true };
 
     try {
         const res = await fetch(chatUrl, {
@@ -61,23 +61,93 @@ export async function fetchAI(promptText, userSignal = null) {
             throw new Error(errorMsgText);
         }
 
-        const rawResponseText = await res.text();
-        const jsonResponse = JSON.parse(rawResponseText);
+        if (onChunkCallback && res.body) {
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let accumulatedRawResponse = "";
 
-        if (typeof jsonResponse?.message?.content === 'string') {
-            return jsonResponse.message.content;
+            return new Promise(async (resolve, reject) => {
+                try {
+                    while (true) {
+                        if (combinedSignal.aborted) {
+                            if (reader) reader.releaseLock();
+                            // No specific DOMException standard code for this, using AbortError.
+                            // The reason will be more specific if available from combinedSignal.reason
+                            reject(combinedSignal.reason || new DOMException('AbortError', 'Stream aborted during read'));
+                            return;
+                        }
+                        const { value, done: streamDone } = await reader.read();
+                        if (streamDone) {
+                            break;
+                        }
+
+                        const chunkText = decoder.decode(value, { stream: true });
+                        accumulatedRawResponse += chunkText; // Accumulate raw chunk for askAIQuestion
+
+                        const lines = chunkText.split('\n');
+                        for (const line of lines) {
+                            if (line.trim() === "") continue;
+                            try {
+                                const jsonResponse = JSON.parse(line);
+                                let currentTextChunk = "";
+                                if (jsonResponse.message && typeof jsonResponse.message.content === 'string') {
+                                    currentTextChunk = jsonResponse.message.content;
+                                } else if (typeof jsonResponse.response === 'string') {
+                                    currentTextChunk = jsonResponse.response;
+                                }
+
+                                if (currentTextChunk) {
+                                    const strippedChunk = stripThink(currentTextChunk);
+                                    if (strippedChunk) { // Only call if there's content after stripping
+                                       onChunkCallback(strippedChunk);
+                                    }
+                                }
+
+                                if (jsonResponse.done) {
+                                    if (reader) reader.releaseLock();
+                                    resolve(accumulatedRawResponse); // Resolve with accumulated raw response
+                                    return;
+                                }
+                            } catch (parseError) {
+                                console.warn("Failed to parse stream line, might be incomplete JSON:", line, parseError);
+                                // Potentially handle incomplete JSON lines if necessary,
+                                // but for now, we assume each line (if not empty) is a complete JSON.
+                            }
+                        }
+                    }
+                    if (reader) reader.releaseLock();
+                    resolve(accumulatedRawResponse); // Resolve if loop finishes normally
+                } catch (streamError) {
+                    if (reader) reader.releaseLock();
+                    reject(streamError);
+                } finally {
+                    if (timeoutId) clearTimeout(timeoutId);
+                    if (userSignal) userSignal.removeEventListener('abort', handleUserAbort);
+                }
+            });
         } else {
-            const errorText = "AI 伺服器回應中缺少 'message.content' 或其非字串";
-            let detail = "";
-            if (cfg.showErr) { detail = ` (實際回應: ${escapeHTML(JSON.stringify(jsonResponse).substring(0, 200))})`;}
-            throw new Error(`${errorText}${detail}`);
+            // Fallback or error if not streaming
+            const rawResponseText = await res.text();
+            const jsonResponse = JSON.parse(rawResponseText);
+            if (typeof jsonResponse?.message?.content === 'string') {
+                const strippedFullResponse = stripThink(jsonResponse.message.content);
+                if (onChunkCallback) {
+                    onChunkCallback(strippedFullResponse); // Send as a single chunk
+                }
+                return Promise.resolve(jsonResponse.message.content); // Resolve with raw content
+            } else {
+                const errorText = "AI 伺服器回應中缺少 'message.content' 或其非字串 (非串流)";
+                let detail = "";
+                if (cfg.showErr) { detail = ` (實際回應: ${escapeHTML(JSON.stringify(jsonResponse).substring(0, 200))})`;}
+                throw new Error(`${errorText}${detail}`);
+            }
         }
     } catch (e) {
         if (timeoutId) clearTimeout(timeoutId);
         if (userSignal) userSignal.removeEventListener('abort', handleUserAbort);
 
-        if (e.name === 'TimeoutError') {
-            throw new Error(`請求超時 (超過 ${cfg.aiTimeout} 秒)`);
+        if (e.name === 'TimeoutError' || (e.message && e.message.startsWith('TimeoutError'))) {
+            throw new DOMException(`請求超時 (超過 ${cfg.aiTimeout} 秒)`, 'TimeoutError');
         }
         throw e;
     }
@@ -127,12 +197,17 @@ JSON 輸出範例如下（請嚴格遵守此結構，不要添加額外註解或
 `;
 }
 
-// summarizeContent 函式 (保持不變)
-export async function summarizeContent(title, content, abortSignal) {
+// summarizeContent 函式 (已修改)
+export async function summarizeContent(title, content, abortSignal, onChunkCallback) {
     const prompt = buildSummaryPrompt(title, content);
     S().lastSummaryPrompt = prompt; // Store the prompt in state
-    const rawAIResponse = await fetchAI(prompt, abortSignal);
-    return stripThink(rawAIResponse);
+    // fetchAI will now call onChunkCallback with stripped chunks.
+    // The function returns a promise that resolves when the stream is complete.
+    return fetchAI(prompt, abortSignal, (chunk) => {
+        if (onChunkCallback) {
+            onChunkCallback(chunk); // Pass stripped chunk to the original callback
+        }
+    });
 }
 
 // buildQAPrompt 函式 (已修改)
@@ -183,14 +258,21 @@ ${contextString}
 ${question}`;
 }
 
-// askAIQuestion 函式 (保持不變)
-export async function askAIQuestion(question, pageTitle, qaHistory, summaryKeyPoints, pageSourceText) {
+// askAIQuestion 函式 (已修改)
+export async function askAIQuestion(question, pageTitle, qaHistory, summaryKeyPoints, pageSourceText, onChunkCallback) {
     const prompt = buildQAPrompt(question, pageTitle, qaHistory, summaryKeyPoints, pageSourceText);
-    const rawAiResponse = await fetchAI(prompt, null);
+    
+    // accumulatedRawResponse will be the full, unstripped response from the stream
+    const accumulatedRawResponse = await fetchAI(prompt, null, (chunk) => {
+        if (onChunkCallback) {
+            onChunkCallback(chunk); // Pass stripped chunk to the original callback
+        }
+    });
+
     return {
-        answer: stripThink(rawAiResponse),
-        rawAnswer: rawAiResponse,
+        rawAnswerAccumulated: accumulatedRawResponse, // Full raw response after stream completion
         prompt: prompt
+        // The 'answer' is now delivered via onChunkCallback
     };
 }
 

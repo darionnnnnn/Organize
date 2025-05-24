@@ -90,17 +90,39 @@ export function toggleQASeparator(visible) {
 }
 
 export function showLoadingState(message) {
-    elements.divContent.innerHTML = `<div class="summary-status">${esc(message)}</div>`;
+    elements.divContent.innerHTML = `
+        <div class="summary-status">
+          <div class="loading-message">${esc(message)}</div>
+          <div class="loading-spinner"></div>
+        </div>`;
     toggleQASeparator(false);
     toggleQAInput(true);
 }
 
-function sanitizeStringForDisplay(str) {
-    if (typeof str !== 'string') return "";
-    return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '�');
+export function initializeSummaryDisplay(initialMessage) {
+    elements.divContent.innerHTML = `
+        <div class="summary-status">
+          <div class="loading-message">${esc(initialMessage)}</div>
+          <div class="loading-spinner"></div>
+        </div>
+        <div id="streaming-summary-content" style="text-align: left; white-space: pre-wrap; margin-top: 10px; padding: 0 15px;"></div>`;
+    // Ensure the qa separator and input are correctly toggled during streaming init
+    toggleQASeparator(false);
+    toggleQAInput(true);
+    return document.getElementById('streaming-summary-content');
 }
 
-export function renderSummary(structuredSummary, summaryHtmlButtons, originalArticleText) {
+export function appendSummaryChunk(summaryContainerElement, chunk) {
+    if (!summaryContainerElement) return;
+    // Sanitize chunk before converting newlines and appending
+    const sanitizedChunk = esc(chunk); // Basic HTML escaping for text content
+    const processedChunk = sanitizedChunk.replace(/\n/g, '<br>');
+    summaryContainerElement.innerHTML += processedChunk;
+}
+
+// finalizeSummaryDisplay will replace renderSummary.
+// It takes the fully formed structured summary and renders the final display.
+export function finalizeSummaryDisplay(structuredSummary, summaryHtmlButtons, originalArticleText) {
     const cfg = getConfig();
     let keyPointsListHTML = '<ul id="key-points-list" class="outline-list">';
     let detailsBlocksHTML = '<div id="key-points-details-container">';
@@ -137,6 +159,7 @@ export function renderSummary(structuredSummary, summaryHtmlButtons, originalArt
         </div>
     ` : "";
 
+    // Replace the entire content, removing spinner and streaming div
     elements.divContent.innerHTML = `
         <div class="summary-card">
             ${summaryHtmlButtons}
@@ -146,6 +169,7 @@ export function renderSummary(structuredSummary, summaryHtmlButtons, originalArt
         </div>
         ${originalArticleHTML}`;
 
+    // Re-bind copy buttons and other event listeners
     if (cfg.showErr) {
         const { lastSummaryPrompt, summaryRawAI, summarySourceText } = S();
         if (lastSummaryPrompt) {
@@ -185,12 +209,26 @@ export function renderSummary(structuredSummary, summaryHtmlButtons, originalArt
             };
         }
     }
+
     toggleQASeparator(true);
     toggleQAInput(false);
     if (elements.qaInput.parentElement.contains(elements.qaInput)) {
         elements.qaInput.focus();
     }
 }
+
+function sanitizeStringForDisplay(str) {
+    if (typeof str !== 'string') return "";
+    return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '�');
+}
+
+// renderSummary is now replaced by finalizeSummaryDisplay.
+// We can comment it out or remove it. For now, let's comment it out.
+/*
+export function renderSummary(structuredSummary, summaryHtmlButtons, originalArticleText) {
+    // ... All the original content of renderSummary is now in finalizeSummaryDisplay ...
+}
+*/
 
 export function renderErrorState(message, onRetryCallback) {
     const cfg = getConfig();
@@ -237,37 +275,179 @@ export function resetUI() {
 
 export function drawQA(qaHistory, onRetryCallback) {
     const cfg = getConfig();
+    // Store current scroll position
+    const scrollableParent = elements.qaList.closest('#scrollable-content') || elements.qaList;
+    const shouldScrollToBottom = Math.abs(scrollableParent.scrollHeight - scrollableParent.scrollTop - scrollableParent.clientHeight) < 5;
+
+
     elements.qaList.innerHTML = qaHistory.map(entry => {
         const { q, a, q_id, qa_prompt, qa_raw_ai_response } = entry;
-        let qaActionsHTML = "";
+        let answerHTML;
 
-        if (cfg.showErr) {
-            qaActionsHTML = `<div class="qa-actions-row">`;
-            if (typeof a === 'string' && a.startsWith("❌") && onRetryCallback) {
-                qaActionsHTML += `<button class="button-retry qa-retry-btn" data-qid="${q_id}" title="重試此問題">重試</button>`;
+        if (a === "AI正在輸入...") {
+            answerHTML = `
+                <span class="loading-message-qa">AI正在輸入...</span>
+                <div class="loading-spinner-qa"></div>`;
+        } else {
+            let qaActionsHTML = "";
+            if (cfg.showErr) {
+                qaActionsHTML = `<div class="qa-actions-row">`;
+                // Retry button should be available if it's an error message or if onRetryCallback is provided
+                if ((typeof a === 'string' && a.startsWith("❌")) || (onRetryCallback && !(a === "AI正在輸入..."))) {
+                     qaActionsHTML += `<button class="button-retry qa-retry-btn" data-qid="${q_id}" title="重試此問題">重試</button>`;
+                }
+                if (qa_prompt) {
+                    qaActionsHTML += `<button class="copy-btn qa-action-btn qa-copy-prompt-btn" data-qid="${q_id}" title="複製用於生成此回答的Prompt">複製Prompt</button>`;
+                }
+                if (qa_raw_ai_response) {
+                    qaActionsHTML += `<button class="copy-btn qa-action-btn qa-copy-raw-btn" data-qid="${q_id}" title="複製此回答的AI原始JSON回應">複製原始回應</button>`;
+                }
+                qaActionsHTML += `</div>`;
             }
-            if (qa_prompt) {
-                qaActionsHTML += `<button class="copy-btn qa-action-btn qa-copy-prompt-btn" data-qid="${q_id}" title="複製用於生成此回答的Prompt">複製Prompt</button>`;
-            }
-            if (qa_raw_ai_response) {
-                qaActionsHTML += `<button class="copy-btn qa-action-btn qa-copy-raw-btn" data-qid="${q_id}" title="複製此回答的AI原始JSON回應">複製原始回應</button>`;
-            }
-            qaActionsHTML += `</div>`;
+            const answerContent = (typeof a === 'string') ? cleanAI(a) : esc(String(a));
+            answerHTML = `${answerContent}${qaActionsHTML}`;
         }
-
-        const answerContent = (typeof a === 'string') ? cleanAI(a) : esc(String(a));
 
         return `
             <div class="qa-pair" data-q-id="${q_id}">
                 <div class="qa-q">${esc(q)}</div>
-                <div class="qa-a">
-                    ${answerContent}
-                    ${qaActionsHTML}
+                <div class="qa-a" id="qa-answer-${q_id}">
+                    ${answerHTML}
                 </div>
             </div>
         `;
     }).join("");
 
+    // Re-bind event listeners for all buttons after redrawing the entire list
+    // This is necessary because innerHTML replacement removes old listeners.
+    qaHistory.forEach(entry => {
+        const { q_id } = entry;
+        const answerContainer = document.getElementById(`qa-answer-${q_id}`);
+        if (!answerContainer) return;
+
+        const retryBtn = answerContainer.querySelector(`.qa-retry-btn[data-qid="${q_id}"]`);
+        if (retryBtn && onRetryCallback) {
+            retryBtn.onclick = (event) => {
+                event.stopPropagation();
+                onRetryCallback(Number(q_id));
+            };
+        }
+
+        const copyPromptBtn = answerContainer.querySelector(`.qa-copy-prompt-btn[data-qid="${q_id}"]`);
+        if (copyPromptBtn) {
+            const qaEntry = qaHistory.find(e => e.q_id === Number(q_id));
+            if (qaEntry && qaEntry.qa_prompt) {
+                _bindCopyToButton(copyPromptBtn, qaEntry.qa_prompt);
+            } else {
+                copyPromptBtn.disabled = true;
+                copyPromptBtn.title = "無Prompt可複製";
+            }
+        }
+
+        const copyRawBtn = answerContainer.querySelector(`.qa-copy-raw-btn[data-qid="${q_id}"]`);
+        if (copyRawBtn) {
+            const qaEntry = qaHistory.find(e => e.q_id === Number(q_id));
+            if (qaEntry && qaEntry.qa_raw_ai_response) {
+                _bindCopyToButton(copyRawBtn, qaEntry.qa_raw_ai_response);
+            } else {
+                copyRawBtn.disabled = true;
+                copyRawBtn.title = "無原始回應可複製";
+            }
+        }
+    });
+
+
+    if (shouldScrollToBottom) {
+        scrollableParent.scrollTop = scrollableParent.scrollHeight;
+    }
+}
+
+export function appendAnswerChunk(answerContainerId, chunk) {
+    const container = document.getElementById(answerContainerId);
+    if (!container) return;
+
+    if (container.querySelector('.loading-spinner-qa')) {
+        container.innerHTML = ''; // Clear loading message/spinner
+    }
+
+    const sanitizedChunk = esc(chunk);
+    const processedChunk = sanitizedChunk.replace(/\n/g, '<br>');
+    container.innerHTML += processedChunk;
+
+    const scrollableParent = elements.qaList.closest('#scrollable-content') || elements.qaList;
+    if (scrollableParent) {
+        // Smart scroll: only scroll to bottom if user was already near the bottom
+        const isScrolledToBottom = scrollableParent.scrollHeight - scrollableParent.clientHeight <= scrollableParent.scrollTop + 10; // 10px buffer
+        if(isScrolledToBottom) {
+            scrollableParent.scrollTop = scrollableParent.scrollHeight;
+        }
+    }
+}
+
+export function finalizeAnswerDisplay(answerContainerId, fullAnswer, qaEntry, onRetryCallback) {
+    const container = document.getElementById(answerContainerId);
+    if (!container) return;
+
+    container.innerHTML = ''; // Clear existing content (streamed text or spinner)
+    const cfg = getConfig();
+    let qaActionsHTML = "";
+
+    if (cfg.showErr) {
+        qaActionsHTML = `<div class="qa-actions-row">`;
+        // Add retry button if it's an error message or if onRetryCallback is provided
+        if ((typeof fullAnswer === 'string' && fullAnswer.startsWith("❌")) || onRetryCallback) {
+            qaActionsHTML += `<button class="button-retry qa-retry-btn" data-qid="${qaEntry.q_id}" title="重試此問題">重試</button>`;
+        }
+        if (qaEntry.qa_prompt) {
+            qaActionsHTML += `<button class="copy-btn qa-action-btn qa-copy-prompt-btn" data-qid="${qaEntry.q_id}" title="複製用於生成此回答的Prompt">複製Prompt</button>`;
+        }
+        if (qaEntry.qa_raw_ai_response) {
+            qaActionsHTML += `<button class="copy-btn qa-action-btn qa-copy-raw-btn" data-qid="${qaEntry.q_id}" title="複製此回答的AI原始JSON回應">複製原始回應</button>`;
+        }
+        qaActionsHTML += `</div>`;
+    }
+
+    const answerContent = (typeof fullAnswer === 'string') ? cleanAI(fullAnswer) : esc(String(fullAnswer));
+    container.innerHTML = `${answerContent}${qaActionsHTML}`;
+
+    // Re-bind event listeners for the newly added buttons
+    const retryBtn = container.querySelector(`.qa-retry-btn`);
+    if (retryBtn && onRetryCallback) {
+        retryBtn.onclick = (event) => {
+            event.stopPropagation();
+            onRetryCallback(Number(qaEntry.q_id));
+        };
+    }
+
+    const copyPromptBtn = container.querySelector(`.qa-copy-prompt-btn`);
+    if (copyPromptBtn) {
+        if (qaEntry.qa_prompt) {
+            _bindCopyToButton(copyPromptBtn, qaEntry.qa_prompt);
+        } else {
+            copyPromptBtn.disabled = true;
+            copyPromptBtn.title = "無Prompt可複製";
+        }
+    }
+
+    const copyRawBtn = container.querySelector(`.qa-copy-raw-btn`);
+    if (copyRawBtn) {
+        if (qaEntry.qa_raw_ai_response) {
+            _bindCopyToButton(copyRawBtn, qaEntry.qa_raw_ai_response);
+        } else {
+            copyRawBtn.disabled = true;
+            copyRawBtn.title = "無原始回應可複製";
+        }
+    }
+
+    const scrollableParent = elements.qaList.closest('#scrollable-content') || elements.qaList;
+    if (scrollableParent) {
+        scrollableParent.scrollTop = scrollableParent.scrollHeight;
+    }
+}
+
+
+
+/*
     elements.qaList.querySelectorAll('.qa-retry-btn').forEach(btn => {
         btn.onclick = (event) => {
             event.stopPropagation();
@@ -303,3 +483,4 @@ export function drawQA(qaHistory, onRetryCallback) {
         scrollableParent.scrollTop = scrollableParent.scrollHeight;
     }
 }
+*/

@@ -2,7 +2,19 @@
 // sidepanel-event-handlers.js
 import { S, resetState } from "./sidepanel-state.js";
 import { getConfig } from "./sidepanel-config.js";
-import { elements, updateTitle, setSummarizeButtonState, toggleQAInput, resetUI, drawQA, showLoadingState, renderSummary, renderErrorState } from "./sidepanel-dom.js";
+import { 
+    elements, 
+    updateTitle, 
+    setSummarizeButtonState, 
+    toggleQAInput, 
+    resetUI, 
+    drawQA, 
+    showLoadingState, 
+    // renderSummary, // Not used directly here, summary uses finalizeSummaryDisplay
+    renderErrorState,
+    appendAnswerChunk,
+    finalizeAnswerDisplay
+} from "./sidepanel-dom.js";
 import { getArticleContent, summarizeContent, askAIQuestion, buildSummaryPrompt } from "./sidepanel-api.js";
 import { esc, parseAIJsonResponse } from "./sidepanel-utils.js";
 
@@ -36,16 +48,17 @@ export function initEventHandlers(runSummarizeFn) {
         const questionEntry = {
             q: questionText,
             q_id: Date.now(),
-            a: "…", // Placeholder for answer
+            a: "AI正在輸入...", // Placeholder for streaming answer
             qa_prompt: null,
             qa_raw_ai_response: null
         };
         S().qaHistory.push(questionEntry);
 
-        drawQA(S().qaHistory, handleQARetry); // Pass retry callback
+        drawQA(S().qaHistory, handleQARetry); // Initial draw with loading state
         elements.qaInput.value = "";
         toggleQAInput(true); // Disable input while AI is thinking
 
+        let accumulatedAnswer = "";
         try {
             const pageTitle = elements.hTitle.textContent;
             const summaryKeyPoints = parseAIJsonResponse(S().summaryRawAI);
@@ -53,21 +66,29 @@ export function initEventHandlers(runSummarizeFn) {
             const aiResult = await askAIQuestion(
                 questionText,
                 pageTitle,
-                S().qaHistory, // Full history for context building by API
+                S().qaHistory, 
                 summaryKeyPoints,
-                S().summarySourceText
+                S().summarySourceText,
+                (chunk) => { // onChunkCallback
+                    if (chunk) {
+                        appendAnswerChunk(`qa-answer-${questionEntry.q_id}`, chunk);
+                        accumulatedAnswer += chunk; 
+                    }
+                }
             );
-            questionEntry.a = aiResult.answer;
+            questionEntry.a = accumulatedAnswer; // Store full stripped answer
             questionEntry.qa_prompt = aiResult.prompt;
-            questionEntry.qa_raw_ai_response = aiResult.rawAnswer;
+            // Ensure rawAnswerAccumulated is used from aiResult
+            questionEntry.qa_raw_ai_response = aiResult.rawAnswerAccumulated; 
         } catch (error) {
             console.error("Q&A 過程中發生錯誤:", error);
-            // Ensure error.message is escaped if it might contain HTML-like characters
-            questionEntry.a = `❌ ${esc(error.message || "AI 問答時發生錯誤")}`;
-            questionEntry.qa_prompt = null; // Clear prompt on error too
-            questionEntry.qa_raw_ai_response = null; // Clear raw response on error
+            accumulatedAnswer = `❌ ${esc(error.message || "AI 問答時發生錯誤")}`;
+            questionEntry.a = accumulatedAnswer; // Set error message to entry
+            questionEntry.qa_prompt = null; 
+            questionEntry.qa_raw_ai_response = null;
         } finally {
-            drawQA(S().qaHistory, handleQARetry); // Re-render with actual answer or error
+            // Finalize display for this specific answer, whether success or error
+            finalizeAnswerDisplay(`qa-answer-${questionEntry.q_id}`, questionEntry.a, questionEntry, handleQARetry);
             toggleQAInput(false); // Re-enable input
             if (elements.qaInput.parentElement.contains(elements.qaInput)) {
                 elements.qaInput.focus();
@@ -90,42 +111,46 @@ export function initEventHandlers(runSummarizeFn) {
 async function handleQARetry(questionId) {
     const cfg = getConfig();
     const entryToRetry = S().qaHistory.find(h => h.q_id === questionId);
-    if (!entryToRetry || S().running) return; // Do not retry if a summary is already running
+    if (!entryToRetry || S().running) return; 
 
     const originalQuestion = entryToRetry.q;
 
-    entryToRetry.a = "…"; // Placeholder while retrying
+    entryToRetry.a = "AI正在輸入..."; // Placeholder for streaming
     entryToRetry.qa_prompt = null;
     entryToRetry.qa_raw_ai_response = null;
 
-    drawQA(S().qaHistory, handleQARetry); // Update UI to show loading state for this Q
-    toggleQAInput(true); // Disable new questions during retry
+    drawQA(S().qaHistory, handleQARetry); // Update UI to show loading state
+    toggleQAInput(true); // Disable new questions
 
+    let accumulatedAnswer = "";
     try {
         const pageTitle = elements.hTitle.textContent;
         const summaryKeyPoints = parseAIJsonResponse(S().summaryRawAI);
-
-        // Create history for prompt building: all entries *before* this one, plus current question.
-        // The askAIQuestion and buildQAPrompt will use the latest entry in the history passed to it as the current question.
         const historyForPrompt = S().qaHistory.filter(h => h.q_id <= questionId);
-
 
         const aiResult = await askAIQuestion(
             originalQuestion,
             pageTitle,
-            historyForPrompt, // Pass history up to and including the current question being retried
+            historyForPrompt, 
             summaryKeyPoints,
-            S().summarySourceText
+            S().summarySourceText,
+            (chunk) => { // onChunkCallback
+                if (chunk) {
+                    appendAnswerChunk(`qa-answer-${entryToRetry.q_id}`, chunk);
+                    accumulatedAnswer += chunk;
+                }
+            }
         );
-        entryToRetry.a = aiResult.answer;
+        entryToRetry.a = accumulatedAnswer;
         entryToRetry.qa_prompt = aiResult.prompt;
-        entryToRetry.qa_raw_ai_response = aiResult.rawAnswer;
+        entryToRetry.qa_raw_ai_response = aiResult.rawAnswerAccumulated;
 
     } catch (error) {
         console.error("Q&A 重試失敗:", error);
-        entryToRetry.a = `❌ ${esc(error.message || "AI 問答重試失敗")}`;
+        accumulatedAnswer = `❌ ${esc(error.message || "AI 問答重試失敗")}`;
+        entryToRetry.a = accumulatedAnswer;
     } finally {
-        drawQA(S().qaHistory, handleQARetry); // Re-render with new answer or error
+        finalizeAnswerDisplay(`qa-answer-${entryToRetry.q_id}`, entryToRetry.a, entryToRetry, handleQARetry);
         toggleQAInput(false); // Re-enable input
         if (elements.qaInput.parentElement.contains(elements.qaInput)) {
             elements.qaInput.focus();

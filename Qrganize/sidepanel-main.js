@@ -10,9 +10,12 @@ import {
     resetUI,
     drawQA,
     showLoadingState,
-    renderSummary,
+    // renderSummary, // Replaced by finalizeSummaryDisplay
     renderErrorState,
-    toggleQASeparator
+    toggleQASeparator,
+    initializeSummaryDisplay,
+    appendSummaryChunk,
+    finalizeSummaryDisplay
 } from "./sidepanel-dom.js";
 import {
     getArticleContent,
@@ -62,10 +65,22 @@ async function runSummarize(selectionText = "") {
 
         StateAccessor().summarySourceText = article.text.trim();
         updateTitle(article.title);
-        showLoadingState("AI 摘要中…");
+        // showLoadingState("AI 摘要中…"); // Replaced by initializeSummaryDisplay
+        const summaryStreamContainer = initializeSummaryDisplay("AI 正在產生摘要...");
+
 
         StateAccessor().lastSummaryPrompt = buildSummaryPrompt(article.title, StateAccessor().summarySourceText);
-        StateAccessor().summaryRawAI = await summarizeContent(article.title, StateAccessor().summarySourceText, StateAccessor().currentAbortController.signal);
+        // Call summarizeContent with onChunkCallback
+        StateAccessor().summaryRawAI = await summarizeContent(
+            article.title,
+            StateAccessor().summarySourceText,
+            StateAccessor().currentAbortController.signal,
+            (chunk) => { // This is the onChunkCallback
+                if (chunk) {
+                    appendSummaryChunk(summaryStreamContainer, chunk);
+                }
+            }
+        );
 
         const structuredSummary = parseAIJsonResponse(StateAccessor().summaryRawAI);
         const cfg = getConfig();
@@ -96,8 +111,8 @@ async function runSummarize(selectionText = "") {
                 runSummarize(StateAccessor().lastRunSelectionText);
             });
         } else if (structuredSummary.length > 0) {
-            // Pass the retry callback creator for summary specific retry.
-            renderSummary(structuredSummary, summaryButtonsHTML, StateAccessor().summarySourceText);
+            // Use finalizeSummaryDisplay instead of renderSummary
+            finalizeSummaryDisplay(structuredSummary, summaryButtonsHTML, StateAccessor().summarySourceText);
         } else {
             let noPointsMessage = "AI 未能從內容中提取結構化重點。";
             if (!StateAccessor().summaryRawAI || !StateAccessor().summaryRawAI.trim()){ noPointsMessage = "AI 未回傳任何內容。"; }
