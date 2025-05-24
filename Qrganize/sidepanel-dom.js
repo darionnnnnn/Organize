@@ -90,7 +90,11 @@ export function toggleQASeparator(visible) {
 }
 
 export function showLoadingState(message) {
-    elements.divContent.innerHTML = `<div class="summary-status">${esc(message)}</div>`;
+    if (message === "AI 摘要中…") {
+        elements.divContent.innerHTML = `<div class="summary-status"><div class="loading-animation"></div><div>${esc(message)}</div></div>`;
+    } else {
+        elements.divContent.innerHTML = `<div class="summary-status">${esc(message)}</div>`;
+    }
     toggleQASeparator(false);
     toggleQAInput(true);
 }
