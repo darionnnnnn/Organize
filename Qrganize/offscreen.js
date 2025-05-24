@@ -27,6 +27,8 @@ async function handleCopyToClipboard(text) {
     }
     textarea.value = text;
     textarea.select();
+    // Optionally, try to focus the textarea, which might help document.execCommand
+    // textarea.focus(); 
 
     try {
         // Attempt to use the modern Clipboard API first
@@ -34,19 +36,35 @@ async function handleCopyToClipboard(text) {
         console.log("Offscreen: Text copied to clipboard successfully via navigator.clipboard.writeText.");
         return true;
     } catch (err) {
-        console.error("Offscreen: navigator.clipboard.writeText failed:", err);
+        // Log detailed error information for navigator.clipboard.writeText
+        console.error(
+            "Offscreen: navigator.clipboard.writeText failed.",
+            "ErrorName:", err.name,
+            "ErrorMessage:", err.message,
+            "ErrorObject:", err
+        );
+
         // Fallback to document.execCommand('copy') if navigator.clipboard.writeText is unavailable or fails
         console.log("Offscreen: Attempting fallback to document.execCommand('copy').");
         try {
+            // Ensure the textarea is focused before execCommand for some browsers/versions
+            textarea.focus();
+            textarea.select(); // Re-select just in case focus changed selection
+
             if (document.execCommand('copy')) {
                 console.log("Offscreen: Text copied successfully via document.execCommand('copy').");
                 return true;
             } else {
-                console.error("Offscreen: document.execCommand('copy') returned false.");
+                console.error("Offscreen: document.execCommand('copy') returned false. This might indicate the command is not enabled or supported in this context.");
                 return false;
             }
         } catch (execErr) {
-            console.error("Offscreen: document.execCommand('copy') threw an error:", execErr);
+            console.error(
+                "Offscreen: document.execCommand('copy') threw an error.",
+                "ErrorName:", execErr.name,
+                "ErrorMessage:", execErr.message,
+                "ErrorObject:", execErr
+            );
             return false;
         }
     }
