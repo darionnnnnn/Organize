@@ -271,6 +271,7 @@ export function resetUI() {
     updateTitle("AI 內容摘要");
     elements.divContent.innerHTML = '<div class="summary-status">請按「摘要」開始，或在網頁上選取文字後點擊擴充功能圖示/右鍵選單。</div>';
     elements.qaList.innerHTML = "";
+    elements.qaList.style.display = 'none'; // Explicitly hide Q&A list
     elements.qaInput.value = "";
     toggleQASeparator(false);
     toggleQAInput(true);
@@ -296,6 +297,17 @@ export function resetUI() {
 
 export function drawQA(qaHistory, onRetryCallback) {
     const cfg = getConfig();
+
+    if (!qaHistory || qaHistory.length === 0) {
+        elements.qaList.style.display = 'none';
+        toggleQASeparator(false);
+        return; // Nothing to draw
+    }
+
+    // If we reach here, there is history to display
+    elements.qaList.style.display = 'block'; 
+    toggleQASeparator(true);
+
     elements.qaList.innerHTML = qaHistory.map(entry => {
         const { q, a, q_id, qa_prompt, qa_raw_ai_response } = entry;
         let qaActionsHTML = "";
