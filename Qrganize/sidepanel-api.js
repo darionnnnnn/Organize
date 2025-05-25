@@ -93,50 +93,89 @@ export async function fetchAI(promptText, userSignal = null) {
 export function buildSummaryPrompt(title, content) {
     const cfg = getConfig();
     const levelText = getLevelText();
-    return `您是一位專業的內容分析師。請將以下內容整理成數個主要重點，並確保所有文字都使用「${cfg.outputLanguage}」。
-請以一個 JSON 物件的格式輸出您的回應。JSON 物件應包含一個名為 "keyPoints" 的陣列，其中每個元素都是一個物件，代表一個重點。
-每個重點物件應有以下三個鍵：
-1. "title": (字串) 代表重點的簡潔標題。
-2. "details": (字串) 代表重點的詳細說明。詳細說明中可以使用換行符號 "\\n" 來表示段落分隔。
-3. "quote": (字串，可選) 如果您的摘要或詳細說明中直接引用了原始文章的片段來支持觀點，請將該引用的原文片段（建議50-150字元，不宜過長）放在此欄位。如果沒有直接引用，則省略此 "quote" 欄位或將其值設為空字串。
+    var prompt = `您是一位專業的內容分析師。請將以下內容整理成數個主要重點，並以「${cfg.outputLanguage}」撰寫。
 
-請確保所有輸出的文字內容均為 UTF-8 編碼的「${cfg.outputLanguage}」。
+⚠️ 請**僅輸出一個合法的 JSON 物件**，不得包含任何說明。
 
-JSON 輸出範例如下（請嚴格遵守此結構，不要添加額外註解或文字）：
+JSON 物件格式如下：
 {
   "keyPoints": [
     {
-      "title": "重點標題一",
-      "details": "這是重點一的詳細說明第一段話。\\n這是重點一的詳細說明第二段話。",
-      "quote": "這是從原文中引用的一段相關文字，它可能包含一些 \\\"引號\\\" 或特殊符號 \\\\ 需被正確轉義。"
-    },
-    {
-      "title": "重點標題二",
-      "details": "這是重點二的詳細說明，只有一段。"
+      "title": "（字串）重點的簡潔標題",
+      "details": "（字串）詳細說明，可用 \\n 表示段落換行",
+      "quote": "（字串，可選）引用原文中的一句話，如無可省略或留空"
     }
   ]
 }
 
-重要指示：
-- 摘要應簡潔扼要，長度與原始內容的複雜度和長度成正比。
-- 請專注於原始文本中明確提到的信息，避免不必要的延伸解釋或添加文本中未包含的外部知識。
-- 如果原始文本非常簡短，摘要也應同樣簡短，可能只包含一到兩個重點。若內容過於簡短無法有效摘要，請在 "keyPoints" 陣列中提供一個說明情況的重點，例如 {"title": "內容過簡", "details": "原始內容過於簡短，無法進行有效摘要。", "quote": ""}。
-- 重點的數量應根據內容的實際信息量決定，而非強制固定數量。
-- **請特別注意：在 "title", "details", 和 "quote" 欄位的字串值中，任何特殊字元（例如雙引號 \\"，反斜線 \\\\，以及其他如換行符 \\n（代表真實換行，而非文字 '\\n'）、定位符 \\t 等控制字元）都必須依照 JSON 字串的標準進行正確轉義。例如，若 'quote' 的內容是 '他說: "引言內容"'，則在 JSON 中應表示為 '\"quote\": \"他說: \\\\\\"引言內容\\\\\"\"'。確保字串值本身不包含未轉義的真實換行符，除非它們是 \\n 形式。**
-- **請嚴格注意：原始內容中若出現 JSON 保留字元（如 "、\\、換行符等），在被引用或轉述進入輸出的 JSON 結構中時，應一律視為字串處理，並正確地進行字元轉義。**
-- **特別提醒：**
-  - \`"\` 應轉為 \`\\\"\`  
-  - \`\\\` 應轉為 \`\\\\\`  
-  - 實際換行應轉為 \`\\n\`，而不是直接插入換行符本身  
-  - 禁止出現未轉義的控制字元（如真實的換行、tab、Unicode 控制符號等）
-- **若未遵守上述規範，將可能導致輸出結果無法被 JavaScript 中的 JSON.parse() 解析，請務必確保輸出的 JSON 為語法正確、可用於程式解析的合法 JSON 結構。**
+格式規範：
+- 僅輸出上述 JSON 物件格式 結構
+- 正確轉義所有特殊字元：
+  - " → \\"
+  - \\ → \\\\
+  - 實體換行符 → \\n
+- 禁止未轉義的控制字元（如實體換行、tab、Unicode 控制符）
 
-摘要的詳細程度請參考：「${levelText}」。
+摘要規範：
+- 摘要需扼要且與原文資訊量相符
+- 僅依據原文撰寫，不得推論延伸
+- 若原文過短無法摘要，請回傳：
+{
+  "keyPoints": [
+    {
+      "title": "內容過簡",
+      "details": "原始內容過於簡短，無法進行有效摘要。",
+      "quote": ""
+    }
+  ]
+}
+
+摘要詳略程度請參考：「${levelText}」
 
 原始內容如下：
 標題：${title}
-內容：${content}
+內容：${preprocessInputForAI(content)}
 `;
+
+
+    console.log("test 5");
+    console.log(prompt);
+    console.log(preprocessInputForAI(content));
+    
+    return prompt;
+}
+
+function preprocessInputForAI(rawText) {
+    if (typeof rawText !== 'string') return '';
+
+    let result = rawText;
+
+    // 清除常見無效分隔符或裝飾符號
+    result = result.replace(/[★☆◎▲※◆■▍●◎◆►]|={3,}|-{3,}|\*{3,}|\/{2,}|\.{3,}/g, '');
+
+    // 替換 markdown、網頁常見符號
+    result = result
+        .replace(/^#+\s*/gm, '') // # 標題移除
+        .replace(/^\s*[\-\*+]\s+/gm, '') // 移除列點符號
+        .replace(/\r\n|\r/g, '\n') // 統一換行符號
+
+    // 移除多餘空行（3 行以上視為冗餘）
+    result = result.replace(/\n{3,}/g, '\n\n');
+
+    // 去除空白行首行尾空白
+    result = result
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .join('\n');
+
+    // 清理空白 HTML tag / 雜訊
+    result = result.replace(/<[^>]*>/g, '');
+
+    // 清除常見無意義短語（可根據需求增補）
+    result = result.replace(/(首波工商時間|特別感謝|請見影片|敬請期待|更多資訊請見.*?)/g, '');
+
+    return result.trim();
 }
 
 // summarizeContent 函式 (保持不變)
@@ -157,10 +196,10 @@ export function buildQAPrompt(question, pageTitle, qaHistory, summaryKeyPoints, 
         summaryKeyPoints.forEach(p => {
             const detailSnippet = p.details.length > 100 ? p.details.substring(0, 100) + "..." : p.details;
             contextString += `- ${p.title}: ${detailSnippet}\n`;
-            // if (p.quote) {
-            //     const quoteSnippet = p.quote.length > 70 ? p.quote.substring(0, 70) + "..." : p.quote;
-            //     contextString += `  (相關原文片段: ${quoteSnippet})\n`;
-            // }
+            if (p.quote) {
+                const quoteSnippet = p.quote.length > 70 ? p.quote.substring(0, 70) + "..." : p.quote;
+                contextString += `  (相關原文片段: ${quoteSnippet})\n`;
+            }
         });
         contextString += "\n";
     }
@@ -180,10 +219,13 @@ export function buildQAPrompt(question, pageTitle, qaHistory, summaryKeyPoints, 
         });
     }
 
-    return `請你扮演本文的作者，並以第一人稱角度回答使用者的問題。你對問題的回答必須**完全根據下方「上下文資訊」中的內容**，不得引入任何未被提及的知識、延伸推測，或與上下文無關的建議。
+    return `請你扮演本文的作者，並以第一人稱角度回答使用者的問題。你對問題的回答必須**完全根據下方「上下文資訊」中的內容**，不得引入任何未被提及的知識、推測性資料，或與上下文無關的建議。
+
+但請注意：當使用者的問題沒有被明確提及時，**你可以在上下文內容的基礎上進行合乎邏輯的推論與詮釋**，前提是這些推論**有跡可循**，且**沒有違背原意**。例如：若文章提到「規格不是強項，但設計令人驚艷」，你可以合理理解作者並不認為規格很差，而是將重點放在設計上。
 
 請遵守以下規範：
-- 若上下文中未提及相關內容，請直接表明無法回答，例如：「這部分我在文章中沒有提及」或「我沒有在內容中說明這個問題」
+- 僅根據上下文內容作答，禁止加入未被提及的背景知識或外部資訊
+- 若上下文中確實未提及相關內容，也無法進行合理推論，請直接表明無法回答，例如：「這部分我在文章中沒有提及」或「我沒有在內容中說明這個問題」
 - 僅使用純文字，請勿使用任何 Markdown 語法（如：#、*、- 等符號）
 - 若內容較長，可使用簡單點列，每列以「- 」開頭；若內容簡短，請以自然段落文字回答
 
@@ -195,6 +237,7 @@ ${contextString}
 
 使用者的問題：
 ${question}`;
+
 
 }
 

@@ -145,6 +145,11 @@ export function parseAIJsonResponse(jsonString) {
 
     let processingString = jsonString.trim();
 
+    const parts = processingString.split('</think>');
+    if (parts.length > 1) {
+        processingString = parts.slice(1).join('');
+    }
+
     // 步驟 1: 移除 Markdown 程式碼區塊符號
     if (processingString.startsWith("```json")) {
         processingString = processingString.substring(7).trimStart();
@@ -157,7 +162,7 @@ export function parseAIJsonResponse(jsonString) {
     }
 
     if (!processingString) {
-        console.warn("JSON string is empty after attempting to strip markdown fences.", "\nOriginal string (first 300):", jsonString.substring(0,300));
+        console.warn("JSON string is empty after attempting to strip markdown fences.", "\nOriginal string (first 300):", jsonString);
         return null;
     }
 
@@ -172,18 +177,27 @@ export function parseAIJsonResponse(jsonString) {
         if (parsedData && Array.isArray(parsedData.keyPoints)) {
             return parsedData.keyPoints.filter(p => p && typeof p.title === 'string' && typeof p.details === 'string' && (typeof p.quote === 'string' || typeof p.quote === 'undefined'));
         }
-        console.warn(
-            "JSON parsed, but not expected structure. Data:", parsedData,
-            "\nOriginal string (first 300):", jsonString.substring(0,300),
-            "\nProcessed string (first 300):", processingString.substring(0,300)
-        );
+        // console.warn(
+        //     "JSON parsed, but not expected structure. Data:", parsedData,
+        //     "\nOriginal string (first 300):", jsonString.substring(0,300),
+        //     "\nProcessed string (first 300):", processingString.substring(0,300)
+        // );
+        console.warn("JSON parsed, but not expected structure. Data:", parsedData);
+        console.warn("Original string:", jsonString);
+        console.warn("Processed string:", processingString);
+        
         return []; // Return empty array for valid JSON but wrong structure
     } catch (error) {
-        console.error(
-            "Cannot parse AI response as JSON:", error,
-            "\nProcessed string (first 300 chars):", processingString.substring(0, 300),
-            "\nOriginal string (first 300 chars):", jsonString.substring(0, 300)
-        );
+        // console.error(
+        //     "Cannot parse AI response as JSON:", error,
+        //     "\nProcessed string (first 300 chars):", processingString.substring(0, 300),
+        //     "\nOriginal string (first 300 chars):", jsonString.substring(0, 300)
+        // );
+
+        console.error("Cannot parse AI response as JSON:", error);
+        console.error("Processed string:", processingString);
+        console.error("Original string:", jsonString);
+        
         return null; // Return null for invalid JSON
     }
 }

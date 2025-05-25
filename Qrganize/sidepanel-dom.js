@@ -120,11 +120,17 @@ export function renderSummary(structuredSummary, summaryHtmlButtons, originalArt
         const cleanQuoteContent = point.quote && sanitizedQuote ? cleanAI(sanitizedQuote) : "";
 
         keyPointsListHTML += `<li><a href="#${pointId}">${esc(cleanTitle || "無標題重點")}</a></li>`;
+        // detailsBlocksHTML += `
+        //     <div class="key-point-detail-block" id="${pointId}">
+        //         <h3>${esc(cleanTitle || "無標題重點")}</h3>
+        //         ${cleanDetails}
+        //         ${cleanQuoteContent ? `<blockquote class="original-text-quote">${cleanQuoteContent}</blockquote>` : ''}
+        //     </div>`;
+        // 不顯示原文參考
         detailsBlocksHTML += `
             <div class="key-point-detail-block" id="${pointId}">
                 <h3>${esc(cleanTitle || "無標題重點")}</h3>
                 ${cleanDetails}
-                ${cleanQuoteContent ? `<blockquote class="original-text-quote">${cleanQuoteContent}</blockquote>` : ''}
             </div>`;
     });
     keyPointsListHTML += '</ul>';
