@@ -373,7 +373,7 @@ hr#qa-separator.qa-separator {
 }
 
 .panel-container.qa-pinned #scrollable-content {
-    padding-bottom: 80px; /* Adjust this value based on qa-form's actual height */
+    padding-bottom: 160px; /* Adjust this value based on qa-form's actual height */
 }
 
 /* Ensure textarea in fixed form takes available space */
