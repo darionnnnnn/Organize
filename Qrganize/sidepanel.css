@@ -381,3 +381,37 @@ hr#qa-separator.qa-separator {
     flex-grow: 1; 
     /* other styles like resize: vertical should be preserved */
 }
+
+.direct-ai-output pre {
+    white-space: pre-wrap; /* Allows wrapping of long lines */
+    word-break: break-word; /* Breaks long words if necessary */
+    padding: 10px;
+    background-color: #f8f9fa; /* Light background for the pre block */
+    border: 1px solid #dee2e6; /* Border for the pre block */
+    border-radius: 4px;
+    font-family: var(--vscode-editor-font-family, Consolas, 'Courier New', monospace); /* Consistent monospaced font */
+    font-size: var(--vscode-editor-font-size);
+    line-height: var(--vscode-editor-line-height);
+    color: var(--vscode-editor-foreground);
+}
+
+.json-fail-copy-actions {
+    margin-top: 8px;
+    display: flex; 
+    gap: 10px; 
+    justify-content: center; 
+}
+
+.copy-btn-inline {
+    background: none;
+    border: none;
+    color: var(--vscode-textLink-foreground); 
+    text-decoration: underline;
+    padding: 2px 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.copy-btn-inline:hover {
+    color: var(--vscode-textLink-activeForeground); 
+}

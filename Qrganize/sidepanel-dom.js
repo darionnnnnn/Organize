@@ -294,27 +294,6 @@ export function resetUI() {
     }
 }
 
-.json-fail-copy-actions {
-    margin-top: 8px;
-    display: flex; /* Using flex for better alignment if multiple buttons */
-    gap: 10px; /* Space between buttons */
-    justify-content: center; /* Center buttons if needed */
-}
-
-.copy-btn-inline {
-    background: none;
-    border: none;
-    color: var(--vscode-textLink-foreground); /* Theme link color */
-    text-decoration: underline;
-    padding: 2px 4px;
-    cursor: pointer;
-    font-size: 0.9em;
-}
-
-.copy-btn-inline:hover {
-    color: var(--vscode-textLink-activeForeground); /* Theme link hover color */
-}
-
 export function drawQA(qaHistory, onRetryCallback) {
     const cfg = getConfig();
     elements.qaList.innerHTML = qaHistory.map(entry => {
