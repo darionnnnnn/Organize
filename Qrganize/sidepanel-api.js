@@ -89,11 +89,30 @@ export async function fetchAI(promptText, userSignal = null) {
     }
 }
 
-// buildSummaryPrompt 函式 (保持不變)
+// buildSummaryPrompt 函式 (已修改)
 export function buildSummaryPrompt(title, content) {
     const cfg = getConfig();
     const levelText = getLevelText();
-    var prompt = `您是一位專業的內容分析師。請將以下內容整理成數個主要重點，並以「${cfg.outputLanguage}」撰寫。
+    const isDirectOutputMode = cfg.directOutput; // Get the flag from config
+    let prompt;
+
+    if (isDirectOutputMode) {
+        prompt = `您是一位專業的內容分析師。請將以下提供的「原始內容」整理成一段或數段流暢易讀的摘要。
+
+重要指示：
+- 請直接輸出摘要內容，不要使用任何 JSON 格式或任何程式碼區塊。
+- 摘要應完全基於「原始內容」，不得推論或延伸原文未提及的資訊。
+- 摘要的語言請使用：「${cfg.outputLanguage}」。
+- 摘要的詳細程度請參考：「${levelText}」。
+- 如果「原始內容」過於簡短或不適合生成摘要，請直接回答「內容過於簡短，無法提供有意義的摘要。」。
+
+原始內容如下：
+標題：${title}
+內容：${preprocessInputForAI(content)}
+`;
+    } else {
+        // Existing JSON prompt logic
+        prompt = `您是一位專業的內容分析師。請將以下內容整理成數個主要重點，並以「${cfg.outputLanguage}」撰寫。
 
 ⚠️ 請**僅輸出一個合法的 JSON 物件**，不得包含任何說明。
 
@@ -111,7 +130,7 @@ JSON 物件格式如下：
 格式規範：
 - 僅輸出上述 JSON 物件格式 結構
 - 正確轉義所有特殊字元：
-  - " → \\"
+  - " → \\\"
   - \\ → \\\\
   - 實體換行符 → \\n
 - 禁止未轉義的控制字元（如實體換行、tab、Unicode 控制符）
@@ -136,11 +155,7 @@ JSON 物件格式如下：
 標題：${title}
 內容：${preprocessInputForAI(content)}
 `;
-
-
-    console.log("test 5");
-    console.log(prompt);
-    console.log(preprocessInputForAI(content));
+    }
     
     return prompt;
 }
