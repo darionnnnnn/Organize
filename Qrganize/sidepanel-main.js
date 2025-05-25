@@ -48,6 +48,8 @@ async function runSummarize(selectionText = "") {
     setSummarizeButtonState(true);
     elements.qaList.innerHTML = "";
     StateAccessor().qaHistory = [];
+    elements.qaList.style.display = 'none'; 
+    toggleQASeparator(false);
 
     showLoadingState("截取文章中…");
 
