@@ -48,9 +48,15 @@ async function runSummarize(selectionText = "") {
     setSummarizeButtonState(true);
     elements.qaList.innerHTML = "";
     StateAccessor().qaHistory = [];
-    elements.qaList.style.display = 'none'; 
-    toggleQASeparator(false);
+    // Hide the entire Q&A section wrapper
+    if (elements.qaSectionWrapper) {
+        elements.qaSectionWrapper.style.display = 'none';
+    }
 
+    // showLoadingState will take care of:
+    // - Setting loading message in divContent
+    // - Calling toggleQASeparator(false)
+    // - Calling toggleQAInput(true)
     showLoadingState("截取文章中…");
 
     try {

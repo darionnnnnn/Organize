@@ -14,7 +14,8 @@ export const elements = {
     qaList: $("qa-list"),
     qaForm: $("qa-form"),
     qaInput: $("qa-input"),
-    askBtn: $("ask-btn")
+    askBtn: $("ask-btn"),
+    qaSectionWrapper: $("qa-section-wrapper")
 };
 
 function _bindCopyToButton(buttonElement, textToCopy) {
@@ -271,9 +272,12 @@ export function resetUI() {
     updateTitle("AI 內容摘要");
     elements.divContent.innerHTML = '<div class="summary-status">請按「摘要」開始，或在網頁上選取文字後點擊擴充功能圖示/右鍵選單。</div>';
     elements.qaList.innerHTML = "";
-    elements.qaList.style.display = 'none'; // Explicitly hide Q&A list
+    // Hide the entire Q&A section wrapper
+    if (elements.qaSectionWrapper) { // Ensure the element exists
+        elements.qaSectionWrapper.style.display = 'none';
+    }
     elements.qaInput.value = "";
-    toggleQASeparator(false);
+    toggleQASeparator(false); // This still correctly hides the separator if needed, even if wrapper is hidden
     toggleQAInput(true);
     setSummarizeButtonState(false);
     document.body.className = '';
@@ -299,13 +303,15 @@ export function drawQA(qaHistory, onRetryCallback) {
     const cfg = getConfig();
 
     if (!qaHistory || qaHistory.length === 0) {
-        elements.qaList.style.display = 'none';
+        if (elements.qaSectionWrapper) elements.qaSectionWrapper.style.display = 'none'; // Hide wrapper
+        // elements.qaList.style.display = 'none'; // No longer needed as parent is hidden
         toggleQASeparator(false);
         return; // Nothing to draw
     }
 
     // If we reach here, there is history to display
-    elements.qaList.style.display = 'block'; 
+    if (elements.qaSectionWrapper) elements.qaSectionWrapper.style.display = 'block'; // Show wrapper
+    // elements.qaList.style.display = 'block'; // No longer needed as parent is shown and CSS handles list display
     toggleQASeparator(true);
 
     elements.qaList.innerHTML = qaHistory.map(entry => {
