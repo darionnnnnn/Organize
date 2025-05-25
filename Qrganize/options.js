@@ -10,7 +10,9 @@ const defaults = {
     outputLanguage: "繁體中文",
     panelWidth: 420,
     aiTimeout: 120, // AI request timeout in seconds (預設120秒)
-    showErr: false
+    showErr: false,
+    directOutput: false,
+    pinQuestionArea: false
 };
 
 function showSaveStatus(message, isError = false) {
@@ -44,6 +46,8 @@ function loadUI(cfg) {
     $("#panelWidth").value = cfg.panelWidth || defaults.panelWidth;
     $("#aiTimeout").value  = cfg.aiTimeout || defaults.aiTimeout; // Load AI timeout (seconds)
     $("#showErr").checked  = typeof cfg.showErr === 'boolean' ? cfg.showErr : defaults.showErr;
+    $("#directOutputToggle").checked = typeof cfg.directOutput === 'boolean' ? cfg.directOutput : defaults.directOutput;
+    $("#pinQuestionAreaToggle").checked = typeof cfg.pinQuestionArea === 'boolean' ? cfg.pinQuestionArea : defaults.pinQuestionArea;
 }
 
 $("#save").onclick = () => {
@@ -63,7 +67,9 @@ $("#save").onclick = () => {
         ),
         // Save AI timeout in seconds, min 5s
         aiTimeout: (aiTimeoutValue && aiTimeoutValue >= 5) ? aiTimeoutValue : defaults.aiTimeout,
-        showErr: $("#showErr").checked
+        showErr: $("#showErr").checked,
+        directOutput: $("#directOutputToggle").checked,
+        pinQuestionArea: $("#pinQuestionAreaToggle").checked
     };
     chrome.storage.sync.set(data, () => {
         if (chrome.runtime.lastError) {

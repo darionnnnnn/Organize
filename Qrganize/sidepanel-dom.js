@@ -104,38 +104,10 @@ function sanitizeStringForDisplay(str) {
     return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '�');
 }
 
-export function renderSummary(structuredSummary, summaryHtmlButtons, originalArticleText) {
+export function renderSummary(summaryData, summaryHtmlButtons, originalArticleText, isDirectOutputMode = false) {
     const cfg = getConfig();
-    let keyPointsListHTML = '<ul id="key-points-list" class="outline-list">';
-    let detailsBlocksHTML = '<div id="key-points-details-container">';
 
-    structuredSummary.forEach((point, index) => {
-        const pointId = `kp-detail-${index}`;
-        const sanitizedTitle = sanitizeStringForDisplay(point.title);
-        const sanitizedDetails = sanitizeStringForDisplay(point.details);
-        const sanitizedQuote = point.quote ? sanitizeStringForDisplay(point.quote) : "";
-
-        const cleanTitle = cleanAI(sanitizedTitle).replace(/<\/?p>/g, '').trim();
-        const cleanDetails = cleanAI(sanitizedDetails);
-        const cleanQuoteContent = point.quote && sanitizedQuote ? cleanAI(sanitizedQuote) : "";
-
-        keyPointsListHTML += `<li><a href="#${pointId}">${esc(cleanTitle || "無標題重點")}</a></li>`;
-        // detailsBlocksHTML += `
-        //     <div class="key-point-detail-block" id="${pointId}">
-        //         <h3>${esc(cleanTitle || "無標題重點")}</h3>
-        //         ${cleanDetails}
-        //         ${cleanQuoteContent ? `<blockquote class="original-text-quote">${cleanQuoteContent}</blockquote>` : ''}
-        //     </div>`;
-        // 不顯示原文參考
-        detailsBlocksHTML += `
-            <div class="key-point-detail-block" id="${pointId}">
-                <h3>${esc(cleanTitle || "無標題重點")}</h3>
-                ${cleanDetails}
-            </div>`;
-    });
-    keyPointsListHTML += '</ul>';
-    detailsBlocksHTML += '</div>';
-
+    // Prepare originalArticleHTML (common to both modes)
     const originalArticleHTML = originalArticleText ? `
         <div class="original-article-container">
             <button id="toggle-original-article" class="original-article-toggle" aria-expanded="false" aria-controls="original-article-content">
@@ -147,15 +119,62 @@ export function renderSummary(structuredSummary, summaryHtmlButtons, originalArt
         </div>
     ` : "";
 
-    elements.divContent.innerHTML = `
-        <div class="summary-card">
-            ${summaryHtmlButtons}
-            ${keyPointsListHTML}
-            <hr class="summary-detail-separator">
-            ${detailsBlocksHTML}
-        </div>
-        ${originalArticleHTML}`;
+    let contentToRenderHTML;
 
+    if (isDirectOutputMode) {
+        const directOutputHTML = `<div class="direct-ai-output"><pre>${esc(sanitizeStringForDisplay(summaryData))}</pre></div>`;
+        contentToRenderHTML = `
+            <div class="summary-card">
+                ${summaryHtmlButtons}
+                ${directOutputHTML}
+            </div>
+            ${originalArticleHTML}`;
+        elements.divContent.innerHTML = contentToRenderHTML;
+    } else { // Structured summary logic
+        let keyPointsListHTML = '<ul id="key-points-list" class="outline-list">';
+        let detailsBlocksHTML = '<div id="key-points-details-container">';
+
+        summaryData.forEach((point, index) => { // summaryData is structuredSummary here
+            const pointId = `kp-detail-${index}`;
+            const sanitizedTitle = sanitizeStringForDisplay(point.title);
+            const sanitizedDetails = sanitizeStringForDisplay(point.details);
+            const cleanTitle = cleanAI(sanitizedTitle).replace(/<\/?p>/g, '').trim();
+            const cleanDetails = cleanAI(sanitizedDetails);
+
+            keyPointsListHTML += `<li><a href="#${pointId}">${esc(cleanTitle || "無標題重點")}</a></li>`;
+            detailsBlocksHTML += `
+                <div class="key-point-detail-block" id="${pointId}">
+                    <h3>${esc(cleanTitle || "無標題重點")}</h3>
+                    ${cleanDetails}
+                </div>`;
+        });
+        keyPointsListHTML += '</ul>';
+        detailsBlocksHTML += '</div>';
+
+        contentToRenderHTML = `
+            <div class="summary-card">
+                ${summaryHtmlButtons}
+                ${keyPointsListHTML}
+                <hr class="summary-detail-separator">
+                ${detailsBlocksHTML}
+            </div>
+            ${originalArticleHTML}`;
+        elements.divContent.innerHTML = contentToRenderHTML;
+
+        // Event listeners for key point navigation (only for structured summary)
+        elements.divContent.querySelectorAll("#key-points-list a").forEach(a => {
+            a.onclick = ev => {
+                ev.preventDefault();
+                const id = a.getAttribute("href").slice(1);
+                const targetElement = elements.divContent.querySelector(`#${id}`);
+                if (targetElement) {
+                    targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            };
+        });
+    }
+
+    // Common button binding and UI toggles for both modes
     if (cfg.showErr) {
         const { lastSummaryPrompt, summaryRawAI, summarySourceText } = S();
         if (lastSummaryPrompt) {
@@ -172,17 +191,6 @@ export function renderSummary(structuredSummary, summaryHtmlButtons, originalArt
         }
     }
 
-    elements.divContent.querySelectorAll("#key-points-list a").forEach(a => {
-        a.onclick = ev => {
-            ev.preventDefault();
-            const id = a.getAttribute("href").slice(1);
-            const targetElement = elements.divContent.querySelector(`#${id}`);
-            if (targetElement) {
-                targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-            }
-        };
-    });
-
     if (originalArticleText) {
         const toggleBtn = elements.divContent.querySelector("#toggle-original-article");
         const originalContentDiv = elements.divContent.querySelector("#original-article-content");
@@ -195,12 +203,31 @@ export function renderSummary(structuredSummary, summaryHtmlButtons, originalArt
             };
         }
     }
+
     toggleQASeparator(true);
     toggleQAInput(false);
     if (elements.qaInput.parentElement.contains(elements.qaInput)) {
         elements.qaInput.focus();
     }
 }
+
+/*
+The following CSS was previously in sidepanel-dom.js, but should be in sidepanel.css
+It's been removed from here and should be ensured it's in sidepanel.css
+
+.direct-ai-output pre {
+    white-space: pre-wrap; 
+    word-break: break-word; 
+    padding: 10px;
+    background-color: #f8f9fa; 
+    border: 1px solid #dee2e6; 
+    border-radius: 4px;
+    font-family: var(--vscode-editor-font-family, Consolas, 'Courier New', monospace); 
+    font-size: var(--vscode-editor-font-size);
+    line-height: var(--vscode-editor-line-height);
+    color: var(--vscode-editor-foreground);
+}
+*/
 
 export function renderErrorState(message, onRetryCallback) {
     const cfg = getConfig();
@@ -224,6 +251,18 @@ export function renderErrorState(message, onRetryCallback) {
             };
         }
     }
+
+    // Attempt to bind copy buttons for JSON failure display
+    const jsonFailCopyPromptBtn = elements.divContent.querySelector("#json-fail-copy-summary-prompt");
+    if (jsonFailCopyPromptBtn && S().lastSummaryPrompt) {
+        _bindCopyToButton(jsonFailCopyPromptBtn, S().lastSummaryPrompt);
+    }
+
+    const jsonFailCopyRawBtn = elements.divContent.querySelector("#json-fail-copy-raw");
+    if (jsonFailCopyRawBtn && S().summaryRawAI && S().summaryRawAI.trim()) {
+        _bindCopyToButton(jsonFailCopyRawBtn, S().summaryRawAI);
+    }
+
     toggleQASeparator(false);
     toggleQAInput(true);
 }
@@ -243,6 +282,37 @@ export function resetUI() {
     } else {
         document.body.classList.add(`font-medium`);
     }
+
+    // Apply pinned Q&A area class
+    const panelContainer = document.querySelector('.panel-container');
+    if (panelContainer) {
+        if (cfg && cfg.pinQuestionArea) {
+            panelContainer.classList.add('qa-pinned');
+        } else {
+            panelContainer.classList.remove('qa-pinned');
+        }
+    }
+}
+
+.json-fail-copy-actions {
+    margin-top: 8px;
+    display: flex; /* Using flex for better alignment if multiple buttons */
+    gap: 10px; /* Space between buttons */
+    justify-content: center; /* Center buttons if needed */
+}
+
+.copy-btn-inline {
+    background: none;
+    border: none;
+    color: var(--vscode-textLink-foreground); /* Theme link color */
+    text-decoration: underline;
+    padding: 2px 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+.copy-btn-inline:hover {
+    color: var(--vscode-textLink-activeForeground); /* Theme link hover color */
 }
 
 export function drawQA(qaHistory, onRetryCallback) {

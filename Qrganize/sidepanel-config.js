@@ -8,7 +8,9 @@ const defaultConfig = {
     outputLanguage: "繁體中文",
     panelWidth: 420,
     aiTimeout: 120, // Default AI timeout 120 seconds
-    showErr: false
+    showErr: false,
+    directOutput: false,
+    pinQuestionArea: false
 };
 
 let currentConfig = { ...defaultConfig };

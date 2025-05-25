@@ -355,3 +355,29 @@ hr#qa-separator.qa-separator {
         opacity: 1;
     }
 }
+
+/* Styles for fixed Q&A input area */
+.panel-container.qa-pinned #qa-form {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%; /* Ensure it spans the full width of the panel-container */
+    background-color: var(--vscode-sideBar-background, #f3f3f3); /* Match panel background or a distinct color */
+    padding: 10px;
+    border-top: 1px solid var(--vscode-sideBar-border, #ccc);
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+    z-index: 100; /* Ensure it's above other content if necessary */
+    /* Override any existing margin-top if present from its previous non-fixed state */
+    margin-top: 0; 
+}
+
+.panel-container.qa-pinned #scrollable-content {
+    padding-bottom: 80px; /* Adjust this value based on qa-form's actual height */
+}
+
+/* Ensure textarea in fixed form takes available space */
+.panel-container.qa-pinned #qa-form #qa-input {
+    flex-grow: 1; 
+    /* other styles like resize: vertical should be preserved */
+}

@@ -73,6 +73,24 @@
                     <p class="input-hint">開啟後，錯誤將顯示更詳細技術資訊，摘要面板也會出現「複製原始內容/回應/Prompt」等除錯按鈕，以及在 AI 呼叫失敗時提供「重試」選項。</p>
                 </div>
 
+                <div class="form-group switch-group">
+                    <label for="directOutputToggle">AI結果直接輸出(小模型建議直接開啟):</label>
+                    <label class="switch">
+                        <input type="checkbox" id="directOutputToggle" name="directOutputToggle">
+                        <span class="slider round"></span>
+                    </label>
+                    <p class="input-hint">開啟後，AI 回覆內容將直接顯示於摘要視窗中，而非解析為結構化重點。適用於回應非JSON格式或著重原文呈現的模型。</p>
+                </div>
+
+                <div class="form-group switch-group">
+                    <label for="pinQuestionAreaToggle">固定提問區塊:</label>
+                    <label class="switch">
+                        <input type="checkbox" id="pinQuestionAreaToggle" name="pinQuestionAreaToggle">
+                        <span class="slider round"></span>
+                    </label>
+                    <p class="input-hint">開啟後，提問輸入區塊將固定在摘要視窗的底部。</p>
+                </div>
+
                 <div class="action-buttons">
                     <button type="button" id="save" class="button primary">儲存設定</button>
                     <button type="button" id="reset" class="button danger">恢復預設值</button>

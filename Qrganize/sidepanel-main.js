@@ -67,9 +67,7 @@ async function runSummarize(selectionText = "") {
         StateAccessor().lastSummaryPrompt = buildSummaryPrompt(article.title, StateAccessor().summarySourceText);
         StateAccessor().summaryRawAI = await summarizeContent(article.title, StateAccessor().summarySourceText, StateAccessor().currentAbortController.signal);
 
-        const structuredSummary = parseAIJsonResponse(StateAccessor().summaryRawAI);
-        const cfg = getConfig();
-
+        const cfg = getConfig(); // Renamed from currentSettings for consistency
         let summaryButtonsHTML = "";
         if (cfg.showErr) {
             summaryButtonsHTML = `<div class="action-buttons-summary">
@@ -79,55 +77,84 @@ async function runSummarize(selectionText = "") {
             </div>`;
         }
 
-        if (structuredSummary === null) {
-            let errorMsg = "⚠️ AI 回應的 JSON 格式無效。"; // cfg.showErr = true 時的預設值，將被覆寫
-            if (cfg.showErr) {
-                errorMsg = `⚠️ AI 回應的 JSON 格式無效 (可能因內容過長被截斷或結構不完整)。${StateAccessor().summaryRawAI && StateAccessor().summaryRawAI.trim() ? '詳情請見主控台。' : 'AI 未回傳任何內容。'}`;
-            } else {
-                // 這是 showErr 為 false 時的新增部分
-                errorMsg = "⚠️ AI 回應的 JSON 格式無效。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
-            }
-            console.log("[Sidepanel Main] 正在為無效的 JSON 呈現錯誤狀態。在 renderErrorState 之前 StateAccessor 的類型：", typeof StateAccessor);
-            renderErrorState(errorMsg, () => {
-                // ... (其餘的回呼函式保持不變)
-                if (typeof StateAccessor !== 'function') {
-                    console.error("嚴重：在重試 (無效 JSON) 的回呼函式中 StateAccessor 為 undefined！");
-                    alert("重試失敗：StateAccessor (S) 在重試回呼 (E1) 中未定義！");
-                    renderErrorState("❗重試失敗：內部狀態函式遺失(S2)", null);
-                    return;
-                }
-                runSummarize(StateAccessor().lastRunSelectionText);
-            });
-        } else if (structuredSummary.length > 0) {
-            // 為摘要特定的重試傳遞重試回呼建立器。
-            renderSummary(structuredSummary, summaryButtonsHTML, StateAccessor().summarySourceText);
+        if (cfg.directOutput) {
+            // Direct Output Mode
+            // summaryRawAI is displayed directly.
+            // The new last argument 'true' indicates direct output mode.
+            renderSummary(StateAccessor().summaryRawAI, summaryButtonsHTML, StateAccessor().summarySourceText, true);
         } else {
-            let noPointsMessage = "AI 未能從內容中提取結構化重點。";
-            if (!StateAccessor().summaryRawAI || !StateAccessor().summaryRawAI.trim()){ noPointsMessage = "AI 未回傳任何內容。"; }
-            else if (StateAccessor().summaryRawAI.trim() === "{}") { noPointsMessage = "AI 回應了空的 JSON 物件。"; }
-            else if (StateAccessor().summaryRawAI.trim().match(/^\{\s*("keyPoints"\s*:\s*\[\s*\])\s*\}$/)) { noPointsMessage = "AI 回應了 JSON 但未包含任何重點。"; }
+            // Normal JSON Processing Mode
+            const structuredSummary = parseAIJsonResponse(StateAccessor().summaryRawAI);
 
-            console.log("[Sidepanel Main] 正在為沒有重點的情況呈現錯誤狀態。在 renderErrorState 之前 StateAccessor 的類型：", typeof StateAccessor);
-            let noPointsFullMessage = noPointsMessage;
-            if (!cfg.showErr) {
-                noPointsFullMessage += " 開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
-            } else if (StateAccessor().summaryRawAI && StateAccessor().summaryRawAI.trim()) {
-                noPointsFullMessage += " (原始回應已記錄於主控台)";
-            }
-            renderErrorState(
-                noPointsFullMessage,
-                // ... 重試回呼 (確保回呼已正確傳遞)
-                () => {
-                    console.log("[Sidepanel Main] 重試 (無重點) 回呼執行中。 StateAccessor 的類型：", typeof StateAccessor);
+            if (structuredSummary === null) {
+                let errorMsgToShow;
+                if (cfg.showErr) {
+                    errorMsgToShow = `⚠️ AI 回應的 JSON 格式無效 (可能因內容過長被截斷或結構不完整)。${StateAccessor().summaryRawAI && StateAccessor().summaryRawAI.trim() ? '詳情請見主控台。' : 'AI 未回傳任何內容。'}`;
+                    
+                    // Add copy buttons for prompt and raw response ONLY if cfg.showErr is true
+                    let copyPromptButtonHTML = "";
+                    if (StateAccessor().lastSummaryPrompt) {
+                        copyPromptButtonHTML = `<button id="json-fail-copy-summary-prompt" class="copy-btn-inline" title="複製摘要Prompt">複製Prompt</button>`;
+                    }
+                    let copyRawResponseButtonHTML = "";
+                    if (StateAccessor().summaryRawAI && StateAccessor().summaryRawAI.trim()) {
+                        copyRawResponseButtonHTML = `<button id="json-fail-copy-raw" class="copy-btn-inline" title="複製AI原始回應">複製AI原始回應</button>`;
+                    }
+
+                    if (copyPromptButtonHTML || copyRawResponseButtonHTML) {
+                        let actionsHTML = "";
+                        if (copyPromptButtonHTML) actionsHTML += copyPromptButtonHTML;
+                        if (copyRawResponseButtonHTML) actionsHTML += (actionsHTML ? " " : "") + copyRawResponseButtonHTML; // Add space if both buttons are present and a gap is desired by CSS
+                        errorMsgToShow += `<div class="json-fail-copy-actions">${actionsHTML}</div>`;
+                    }
+                } else {
+                    // cfg.showErr is false
+                    errorMsgToShow = "⚠️ AI 回應的 JSON 格式無效。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
+                    // No buttons are appended here
+                }
+                console.log("[Sidepanel Main] 正在為無效的 JSON 呈現錯誤狀態。在 renderErrorState 之前 StateAccessor 的類型：", typeof StateAccessor);
+                renderErrorState(errorMsgToShow, () => {
+                    // ... (其餘的回呼函式保持不變)
                     if (typeof StateAccessor !== 'function') {
-                        console.error("嚴重：在重試 (無重點) 的回呼函式中 StateAccessor 為 undefined！");
-                        alert("重試失敗：StateAccessor (S) 在重試回呼 (E2) 中未定義！");
-                        renderErrorState("❗重試失敗：內部狀態函式遺失(S3)", null);
+                        console.error("嚴重：在重試 (無效 JSON) 的回呼函式中 StateAccessor 為 undefined！");
+                        alert("重試失敗：StateAccessor (S) 在重試回呼 (E1) 中未定義！");
+                        renderErrorState("❗重試失敗：內部狀態函式遺失(S2)", null);
                         return;
                     }
                     runSummarize(StateAccessor().lastRunSelectionText);
+                });
+            } else if (structuredSummary.length > 0) {
+                // 為摘要特定的重試傳遞重試回呼建立器。
+                // The new last argument 'false' indicates normal (non-direct) output mode.
+                renderSummary(structuredSummary, summaryButtonsHTML, StateAccessor().summarySourceText, false);
+            } else {
+                let noPointsMessage = "AI 未能從內容中提取結構化重點。";
+                if (!StateAccessor().summaryRawAI || !StateAccessor().summaryRawAI.trim()){ noPointsMessage = "AI 未回傳任何內容。"; }
+                else if (StateAccessor().summaryRawAI.trim() === "{}") { noPointsMessage = "AI 回應了空的 JSON 物件。"; }
+                else if (StateAccessor().summaryRawAI.trim().match(/^\{\s*("keyPoints"\s*:\s*\[\s*\])\s*\}$/)) { noPointsMessage = "AI 回應了 JSON 但未包含任何重點。"; }
+
+                console.log("[Sidepanel Main] 正在為沒有重點的情況呈現錯誤狀態。在 renderErrorState 之前 StateAccessor 的類型：", typeof StateAccessor);
+                let noPointsFullMessage = noPointsMessage;
+                if (!cfg.showErr) {
+                    noPointsFullMessage += " 開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
+                } else if (StateAccessor().summaryRawAI && StateAccessor().summaryRawAI.trim()) {
+                    noPointsFullMessage += " (原始回應已記錄於主控台)";
                 }
-            );
+                renderErrorState(
+                    noPointsFullMessage,
+                    // ... 重試回呼 (確保回呼已正確傳遞)
+                    () => {
+                        console.log("[Sidepanel Main] 重試 (無重點) 回呼執行中。 StateAccessor 的類型：", typeof StateAccessor);
+                        if (typeof StateAccessor !== 'function') {
+                            console.error("嚴重：在重試 (無重點) 的回呼函式中 StateAccessor 為 undefined！");
+                            alert("重試失敗：StateAccessor (S) 在重試回呼 (E2) 中未定義！");
+                            renderErrorState("❗重試失敗：內部狀態函式遺失(S3)", null);
+                            return;
+                        }
+                        runSummarize(StateAccessor().lastRunSelectionText);
+                    }
+                );
+            }
         }
     } catch (error) {
         console.error("摘要執行期間錯誤 (在 runSummarize 中捕獲)：", error);
