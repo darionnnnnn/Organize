@@ -1,5 +1,5 @@
 // Qrganize/sidepanel-main.js
-import { esc, parseAIJsonResponse } from "./sidepanel-utils.js";
+import { esc, parseAIJsonResponse, stripThink } from "./sidepanel-utils.js";
 import { loadConfig, getConfig } from "./sidepanel-config.js";
 import { S as StateAccessor, resetState } from "./sidepanel-state.js"; // 為了日誌清晰度，將 S 重命名為 StateAccessor
 import {
@@ -17,7 +17,8 @@ import {
 import {
     getArticleContent,
     summarizeContent,
-    buildSummaryPrompt
+    buildSummaryPrompt,
+    fetchAI
 } from "./sidepanel-api.js";
 import { initEventHandlers } from "./sidepanel-event-handlers.js";
 
@@ -95,42 +96,32 @@ async function runSummarize(selectionText = "") {
             const structuredSummary = parseAIJsonResponse(StateAccessor().summaryRawAI);
 
             if (structuredSummary === null) {
-                let errorMsgToShow;
-                if (cfg.showErr) {
-                    errorMsgToShow = `⚠️ AI 回應的 JSON 格式無效 (可能因內容過長被截斷或結構不完整)。${StateAccessor().summaryRawAI && StateAccessor().summaryRawAI.trim() ? '詳情請見主控台。' : 'AI 未回傳任何內容。'}`;
-                    
-                    // Add copy buttons for prompt and raw response ONLY if cfg.showErr is true
-                    let copyPromptButtonHTML = "";
-                    if (StateAccessor().lastSummaryPrompt) {
-                        copyPromptButtonHTML = `<button id="json-fail-copy-summary-prompt" class="copy-btn-inline" title="複製摘要Prompt">複製Prompt</button>`;
-                    }
-                    let copyRawResponseButtonHTML = "";
-                    if (StateAccessor().summaryRawAI && StateAccessor().summaryRawAI.trim()) {
-                        copyRawResponseButtonHTML = `<button id="json-fail-copy-raw" class="copy-btn-inline" title="複製AI原始回應">複製AI原始回應</button>`;
-                    }
+                console.warn("Initial JSON parsing failed. Attempting fallback to direct summary.");
+                showLoadingState("JSON 格式解析失敗，嘗試直接摘要…");
 
-                    if (copyPromptButtonHTML || copyRawResponseButtonHTML) {
-                        let actionsHTML = "";
-                        if (copyPromptButtonHTML) actionsHTML += copyPromptButtonHTML;
-                        if (copyRawResponseButtonHTML) actionsHTML += (actionsHTML ? " " : "") + copyRawResponseButtonHTML; // Add space if both buttons are present and a gap is desired by CSS
-                        errorMsgToShow += `<div class="json-fail-copy-actions">${actionsHTML}</div>`;
-                    }
-                } else {
-                    // cfg.showErr is false
-                    errorMsgToShow = "⚠️ AI 回應的 JSON 格式無效。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
-                    // No buttons are appended here
+                try {
+                    // 'article.title' is from the earlier part of runSummarize
+                    // 'StateAccessor().summarySourceText' holds the original text
+                    const directPrompt = buildSummaryPrompt(article.title, StateAccessor().summarySourceText, true); // true to force direct prompt
+                    StateAccessor().lastSummaryPrompt = directPrompt; // Update the stored prompt
+
+                    // 'StateAccessor().currentAbortController.signal' is the existing abort signal
+                    const directAIResponse = await fetchAI(directPrompt, StateAccessor().currentAbortController.signal);
+                    const cleanDirectAIResponse = stripThink(directAIResponse);
+
+                    // 'summaryButtonsHTML' should be generated earlier in runSummarize and be available here
+                    // 'StateAccessor().summarySourceText' is the original article text
+                    // The last 'true' tells renderSummary it's direct output mode
+                    renderSummary(cleanDirectAIResponse, summaryButtonsHTML, StateAccessor().summarySourceText, true);
+
+                } catch (fallbackError) {
+                    console.error("Fallback direct summary also failed:", fallbackError);
+                    // 'cfg' should be the config object fetched at the start of runSummarize
+                    const finalErrMsg = cfg.showErr ? 
+                        `JSON 解析失敗，備援直接摘要亦失敗: ${fallbackError.message}` : 
+                        "摘要處理失敗，請稍後再試或檢查設定。";
+                    renderErrorState(finalErrMsg, null); // No retry action for the fallback failure
                 }
-                console.log("[Sidepanel Main] 正在為無效的 JSON 呈現錯誤狀態。在 renderErrorState 之前 StateAccessor 的類型：", typeof StateAccessor);
-                renderErrorState(errorMsgToShow, () => {
-                    // ... (其餘的回呼函式保持不變)
-                    if (typeof StateAccessor !== 'function') {
-                        console.error("嚴重：在重試 (無效 JSON) 的回呼函式中 StateAccessor 為 undefined！");
-                        alert("重試失敗：StateAccessor (S) 在重試回呼 (E1) 中未定義！");
-                        renderErrorState("❗重試失敗：內部狀態函式遺失(S2)", null);
-                        return;
-                    }
-                    runSummarize(StateAccessor().lastRunSelectionText);
-                });
             } else if (structuredSummary.length > 0) {
                 // 為摘要特定的重試傳遞重試回呼建立器。
                 // The new last argument 'false' indicates normal (non-direct) output mode.

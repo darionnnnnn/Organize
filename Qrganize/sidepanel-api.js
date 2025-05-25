@@ -90,13 +90,14 @@ export async function fetchAI(promptText, userSignal = null) {
 }
 
 // buildSummaryPrompt 函式 (已修改)
-export function buildSummaryPrompt(title, content) {
+export function buildSummaryPrompt(title, content, isDirectOutputModeOverride) {
     const cfg = getConfig();
     const levelText = getLevelText();
-    const isDirectOutputMode = cfg.directOutput; // Get the flag from config
+    // Determine the mode: use override if provided, otherwise use config setting
+    const actualIsDirectOutputMode = typeof isDirectOutputModeOverride === 'boolean' ? isDirectOutputModeOverride : cfg.directOutput;
     let prompt;
 
-    if (isDirectOutputMode) {
+    if (actualIsDirectOutputMode) {
         prompt = `您是一位專業的內容分析師。請將以下提供的「原始內容」整理成一段或數段流暢易讀的摘要。
 
 重要指示：
@@ -195,7 +196,7 @@ function preprocessInputForAI(rawText) {
 
 // summarizeContent 函式 (保持不變)
 export async function summarizeContent(title, content, abortSignal) {
-    const prompt = buildSummaryPrompt(title, content);
+    const prompt = buildSummaryPrompt(title, content, undefined);
     S().lastSummaryPrompt = prompt; // Store the prompt in state
     const rawAIResponse = await fetchAI(prompt, abortSignal);
     return stripThink(rawAIResponse);
