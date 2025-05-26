@@ -4,7 +4,8 @@ const $ = s => document.querySelector(s);
 // 預設設定值
 const defaults = {
     detail: "medium",
-    apiUrl: "https://localhost/api/chat", // 您的預設 API URL
+    apiProvider: "ollama", // 新增 API 提供者設定
+    apiUrl: "http://localhost:11434", // 更新 API URL 預設值
     model:  "ollama", // 您的預設模型
     font:   "medium",
     outputLanguage: "繁體中文",
@@ -40,6 +41,10 @@ function loadUI(cfg) {
     const fontRadio = $(`[name=font][value=${fontValue}]`);
     if (fontRadio) fontRadio.checked = true;
 
+    const apiProviderValue = cfg.apiProvider || defaults.apiProvider;
+    const apiProviderRadio = $(`[name=apiProvider][value=${apiProviderValue}]`);
+    if (apiProviderRadio) apiProviderRadio.checked = true;
+
     $("#apiUrl").value     = cfg.apiUrl || defaults.apiUrl;
     $("#model").value      = cfg.model || defaults.model;
     $("#outputLanguage").value = cfg.outputLanguage || defaults.outputLanguage;
@@ -53,11 +58,13 @@ function loadUI(cfg) {
 $("#save").onclick = () => {
     const detailChecked = $("[name=detail]:checked");
     const fontChecked = $("[name=font]:checked");
+    const apiProviderChecked = $("[name=apiProvider]:checked"); // 取得 API 提供者
     const aiTimeoutValue = parseInt($("#aiTimeout").value, 10);
 
     const data = {
         detail: detailChecked ? detailChecked.value : defaults.detail,
         font:   fontChecked ? fontChecked.value : defaults.font,
+        apiProvider: apiProviderChecked ? apiProviderChecked.value : defaults.apiProvider, // 儲存 API 提供者
         apiUrl: $("#apiUrl").value.trim() || defaults.apiUrl,
         model:  $("#model").value.trim()  || defaults.model,
         outputLanguage: $("#outputLanguage").value.trim() || defaults.outputLanguage,

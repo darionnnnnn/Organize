@@ -66,23 +66,34 @@ function openPanel(tab, selectionText = "") {
     );
 }
 
-function getApiUrl(callback) {
-    chrome.storage.sync.get({ apiUrl: "http://localhost:11434/api" }, ({ apiUrl }) => { // 預設值已更新為常見的 Ollama 位址
-        callback(apiUrl);
-    });
-}
+// Removed getApiUrl function as its logic will be incorporated directly into keepAliveInterval
 
 const keepAliveInterval = setInterval(() => {
-    getApiUrl(apiUrl => {
-        if (!apiUrl || !(apiUrl.startsWith("http://") || apiUrl.startsWith("https://"))) {
-            return;
+    chrome.storage.sync.get({ apiUrl: "http://localhost:11434", apiProvider: "ollama" }, ({ apiUrl, apiProvider }) => {
+        if (apiProvider === "ollama") {
+            if (!apiUrl || !(apiUrl.startsWith("http://") || apiUrl.startsWith("https://"))) {
+                // console.debug("Ollama API URL無效，跳過 Ping。");
+                return;
+            }
+            // 確保 apiUrl 是基底 URL，然後附加 /api/tags
+            let pingUrl = apiUrl.trim().replace(/\/+$/, ""); // 移除尾部斜線
+            pingUrl += '/api/tags';
+
+            fetch(pingUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        // console.debug(`保持連線 Ping 失敗 (Ollama): ${response.status}`);
+                    } else {
+                        // console.debug("保持連線 Ping 成功 (Ollama)");
+                    }
+                })
+                .catch(err => {
+                    // console.debug("保持連線 Ping 錯誤 (Ollama):", err.message);
+                });
+        } else if (apiProvider === "lmstudio") {
+            // 對於 LM Studio，不執行任何 Ping 操作
+            // console.debug("API Provider 為 LM Studio，跳過 Ping。");
         }
-        // 確保 API URL 不以 /api 或 /api/tags 結尾
-        let pingUrl = apiUrl.replace(/\/api\/tags$/, "").replace(/\/api$/, "").replace(/\/$/, "");
-        fetch(`${pingUrl}/api/tags`)
-            .catch(err => {
-                // console.debug("保持連線 Ping 失敗：", err.message);
-            });
     });
 }, 20000);
 

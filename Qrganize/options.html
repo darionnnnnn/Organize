@@ -26,9 +26,17 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="apiUrl">Ollama API 位址:</label>
+                    <label for="apiProvider">API 提供者 (API Provider):</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="apiProvider" value="ollama" id="apiProviderOllama"> Ollama</label>
+                        <label><input type="radio" name="apiProvider" value="lmstudio" id="apiProviderLmstudio"> LM Studio</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="apiUrl">API 服務位址 (API Base URL):</label>
                     <input type="text" id="apiUrl" name="apiUrl" placeholder="例如: http://localhost:11434/api">
-                    <p class="input-hint">請填寫您的本地 Ollama 服務 API 的基底網址 (通常以 `/api` 結尾)。</p>
+                    <p class="input-hint">請填寫所選 API 提供者的基底 URL。例如: Ollama 通常是 `http://localhost:11434`，LM Studio 通常是 `http://localhost:1234`。</p>
                 </div>
 
                 <div class="form-group">
