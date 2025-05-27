@@ -201,3 +201,17 @@ export function parseAIJsonResponse(jsonString) {
         return null; // Return null for invalid JSON
     }
 }
+
+/**
+ * Decodes HTML entities in a string.
+ * It uses the browser's DOM parsing capabilities to convert entities like &lt; or &amp;
+ * back to their respective characters (< or &).
+ * @param {string} str - The string containing HTML entities.
+ * @returns {string} The string with HTML entities decoded. If input is not a string, it's returned as is.
+ */
+export function decodeHtmlEntities(str) {
+  if (typeof str !== 'string') return str; // Add type check for robustness
+  const txt = document.createElement("textarea");
+  txt.innerHTML = str;
+  return txt.value;
+}

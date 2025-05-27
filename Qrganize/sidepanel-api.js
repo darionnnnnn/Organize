@@ -1,5 +1,5 @@
 // Qrganize/sidepanel-api.js
-import { stripThink, esc as escapeHTML } from "./sidepanel-utils.js";
+import { stripThink, esc as escapeHTML, decodeHtmlEntities } from "./sidepanel-utils.js";
 import { getConfig, getChatUrl, getLevelText } from "./sidepanel-config.js";
 import { S } from "./sidepanel-state.js";
 
@@ -37,7 +37,26 @@ export async function fetchAI(promptText, userSignal = null) {
         if (userSignal) userSignal.removeEventListener('abort', handleUserAbort);
     }, { once: true });
 
-    const payload = { model: cfg.model, messages: [ { role: "user", content: promptText } ], stream: false };
+    let payload;
+    if (cfg.apiProvider === "lmstudio") {
+        payload = {
+            model: cfg.model, // LM Studio uses the model field for the pre-loaded model
+            messages: [
+                { role: "system", content: "你是一位專業的內容摘要助手。" },
+                { role: "user", content: promptText }
+            ],
+            temperature: 0.7, // Common temperature setting
+            stream: false // Assuming stream is false for LM Studio as well
+        };
+    } else { // Default to Ollama
+        payload = {
+            model: cfg.model,
+            messages: [
+                { role: "user", content: promptText }
+            ],
+            stream: false
+        };
+    }
 
     try {
         const res = await fetch(chatUrl, {
@@ -65,19 +84,49 @@ export async function fetchAI(promptText, userSignal = null) {
         }
 
         const rawResponseText = await res.text();
-        const jsonResponse = JSON.parse(rawResponseText);
+        let jsonResponse; // Declare jsonResponse
 
-        if (typeof jsonResponse?.message?.content === 'string') {
-            return jsonResponse.message.content;
-        } else {
-            let errorToThrow;
-            if (cfg.showErr) {
-                errorToThrow = `AI 伺服器回應中缺少 'message.content' 或其非字串 (實際回應: ${escapeHTML(JSON.stringify(jsonResponse).substring(0, 200))})`;
-            } else {
-                errorToThrow = "AI 伺服器回應格式錯誤。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
-            }
-            throw new Error(errorToThrow);
+        // Conditionally decode and parse based on apiProvider
+        // cfg is already defined at the top of the function
+        if (cfg.apiProvider === "lmstudio") {
+            const decodedResponseText = decodeHtmlEntities(rawResponseText);
+            jsonResponse = JSON.parse(decodedResponseText);
+        } else { // Assuming 'ollama' or any other provider
+            jsonResponse = JSON.parse(rawResponseText);
         }
+
+        // LM Studio and Ollama have different response structures.
+        // LM Studio: jsonResponse.choices[0].message.content
+        // Ollama: jsonResponse.message.content
+        // This logic should use the 'jsonResponse' from above
+        if (cfg.apiProvider === "lmstudio") {
+            if (jsonResponse && jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message && typeof jsonResponse.choices[0].message.content === 'string') {
+                return jsonResponse.choices[0].message.content;
+            } else {
+                // Handle missing content for LM Studio
+                let errorToThrow;
+                if (cfg.showErr) {
+                    errorToThrow = `AI 伺服器回應 (LM Studio) 中缺少 'choices[0].message.content' 或其非字串 (實際回應: ${escapeHTML(JSON.stringify(jsonResponse).substring(0, 200))})`;
+                } else {
+                    errorToThrow = "AI 伺服器回應 (LM Studio) 格式錯誤。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
+                }
+                throw new Error(errorToThrow);
+            }
+        } else { // Ollama
+            if (jsonResponse && jsonResponse.message && typeof jsonResponse.message.content === 'string') {
+                return jsonResponse.message.content;
+            } else {
+                // Handle missing content for Ollama
+                let errorToThrow;
+                if (cfg.showErr) {
+                    errorToThrow = `AI 伺服器回應 (Ollama) 中缺少 'message.content' 或其非字串 (實際回應: ${escapeHTML(JSON.stringify(jsonResponse).substring(0, 200))})`;
+                } else {
+                    errorToThrow = "AI 伺服器回應 (Ollama) 格式錯誤。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
+                }
+                throw new Error(errorToThrow);
+            }
+        }
+
     } catch (e) {
         if (timeoutId) clearTimeout(timeoutId);
         if (userSignal) userSignal.removeEventListener('abort', handleUserAbort);
