@@ -39,7 +39,7 @@ function showSaveStatus(message, isError = false) {
 
 chrome.storage.sync.get(defaults, loadUI);
 
-function loadUI(cfg) {
+async function loadUI(cfg) { // <<< MODIFIED HERE
     const detailValue = cfg.detail || defaults.detail;
     const detailRadio = $(`[name=detail][value=${detailValue}]`);
     if (detailRadio) detailRadio.checked = true;
