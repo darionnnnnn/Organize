@@ -1,12 +1,19 @@
 // options.js - 設定頁面邏輯
 const $ = s => document.querySelector(s);
+const modelSelect = $("#model");
+const refreshModelsButton = $("#refreshModels");
+const modelsLoadingIndicator = $("#modelsLoadingIndicator");
+const apiProviderOllama = $("#apiProviderOllama");
+const apiProviderLmstudio = $("#apiProviderLmstudio");
+const apiUrlInput = $("#apiUrl");
+
 
 // 預設設定值
 const defaults = {
     detail: "medium",
-    apiProvider: "ollama", // 新增 API 提供者設定
-    apiUrl: "http://localhost:11434", // 更新 API URL 預設值
-    model:  "ollama", // 您的預設模型
+    apiProvider: "ollama", 
+    apiUrl: "http://localhost:11434", 
+    model:  "qwen2:7b-instruct", // Default model example
     font:   "medium",
     outputLanguage: "繁體中文",
     panelWidth: 420,
@@ -46,27 +53,134 @@ function loadUI(cfg) {
     if (apiProviderRadio) apiProviderRadio.checked = true;
 
     $("#apiUrl").value     = cfg.apiUrl || defaults.apiUrl;
-    $("#model").value      = cfg.model || defaults.model;
+    // $("#model").value will be populated by populateModelDropdown
     $("#outputLanguage").value = cfg.outputLanguage || defaults.outputLanguage;
     $("#panelWidth").value = cfg.panelWidth || defaults.panelWidth;
     $("#aiTimeout").value  = cfg.aiTimeout || defaults.aiTimeout; // Load AI timeout (seconds)
     $("#showErr").checked  = typeof cfg.showErr === 'boolean' ? cfg.showErr : defaults.showErr;
     $("#directOutputToggle").checked = typeof cfg.directOutput === 'boolean' ? cfg.directOutput : defaults.directOutput;
     $("#pinQuestionAreaToggle").checked = typeof cfg.pinQuestionArea === 'boolean' ? cfg.pinQuestionArea : defaults.pinQuestionArea;
+
+    // Populate models after other settings are loaded
+    await populateModelDropdown(cfg.model);
 }
+
+async function fetchAvailableModels() {
+    const currentApiProvider = apiProviderOllama.checked ? "ollama" : "lmstudio";
+    const currentApiUrl = apiUrlInput.value.trim();
+
+    modelsLoadingIndicator.style.display = "inline";
+    refreshModelsButton.disabled = true;
+    modelSelect.disabled = true;
+
+    let fetchUrl = "";
+    if (!currentApiUrl || !(currentApiUrl.startsWith("http://") || currentApiUrl.startsWith("https://"))) {
+        showSaveStatus("❌ API 位址無效。", true);
+        modelsLoadingIndicator.style.display = "none";
+        refreshModelsButton.disabled = false;
+        modelSelect.disabled = false;
+        return [];
+    }
+
+    if (currentApiProvider === "ollama") {
+        fetchUrl = currentApiUrl.replace(/\/+$/, '') + '/api/tags';
+    } else if (currentApiProvider === "lmstudio") {
+        fetchUrl = currentApiUrl.replace(/\/+$/, '') + '/v1/models';
+    } else {
+        modelsLoadingIndicator.style.display = "none";
+        refreshModelsButton.disabled = false;
+        modelSelect.disabled = false;
+        return []; // Should not happen
+    }
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 seconds timeout
+
+        const response = await fetch(fetchUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            showSaveStatus(`❌ 無法取得模型列表 (HTTP ${response.status})。`, true);
+            return [];
+        }
+        const data = await response.json();
+        if (currentApiProvider === "ollama" && data.models && Array.isArray(data.models)) {
+            return data.models.map(m => m.name).sort();
+        } else if (currentApiProvider === "lmstudio" && data.data && Array.isArray(data.data)) {
+            return data.data.map(m => m.id).sort();
+        } else {
+            showSaveStatus("❌ 模型列表格式錯誤。", true);
+            return [];
+        }
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            showSaveStatus("❌ 取得模型列表超時。", true);
+        } else {
+            showSaveStatus(`❌ 取得模型列表失敗: ${error.message}`, true);
+        }
+        return [];
+    } finally {
+        modelsLoadingIndicator.style.display = "none";
+        refreshModelsButton.disabled = false;
+        modelSelect.disabled = false;
+    }
+}
+
+async function populateModelDropdown(selectedModelFromStorage) {
+    const models = await fetchAvailableModels();
+    const previouslySelectedValue = modelSelect.value; // Save current selection before clearing
+    modelSelect.innerHTML = ""; // Clear existing options
+
+    if (models.length === 0) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "未能載入或無可用模型";
+        option.disabled = true;
+        modelSelect.appendChild(option);
+        // Keep showSaveStatus for fetchAvailableModels for more specific errors.
+        // showSaveStatus("⚠️ 未能載入模型列表，或無可用模型。", true); 
+        return;
+    }
+
+    let foundSelectedModel = false;
+    models.forEach(modelName => {
+        const option = document.createElement("option");
+        option.value = modelName;
+        option.textContent = modelName;
+        if (modelName === selectedModelFromStorage) {
+            option.selected = true;
+            foundSelectedModel = true;
+        }
+        modelSelect.appendChild(option);
+    });
+
+    if (selectedModelFromStorage && !foundSelectedModel) {
+        showSaveStatus(`⚠️ 先前選擇的模型 (${selectedModelFromStorage}) 不在目前列表中。已選擇第一個可用模型。`, false);
+        if (modelSelect.options.length > 0) {
+            modelSelect.options[0].selected = true; // Select the first model as a fallback
+        }
+    } else if (!selectedModelFromStorage && models.length > 0) {
+        // If no model was pre-selected (e.g. first load with defaults), select the first one
+        modelSelect.options[0].selected = true;
+    }
+}
+
 
 $("#save").onclick = () => {
     const detailChecked = $("[name=detail]:checked");
     const fontChecked = $("[name=font]:checked");
-    const apiProviderChecked = $("[name=apiProvider]:checked"); // 取得 API 提供者
+    const apiProviderChecked = $("[name=apiProvider]:checked");
     const aiTimeoutValue = parseInt($("#aiTimeout").value, 10);
+
+    const selectedModelValue = modelSelect.value;
 
     const data = {
         detail: detailChecked ? detailChecked.value : defaults.detail,
         font:   fontChecked ? fontChecked.value : defaults.font,
-        apiProvider: apiProviderChecked ? apiProviderChecked.value : defaults.apiProvider, // 儲存 API 提供者
-        apiUrl: $("#apiUrl").value.trim() || defaults.apiUrl,
-        model:  $("#model").value.trim()  || defaults.model,
+        apiProvider: apiProviderChecked ? apiProviderChecked.value : defaults.apiProvider,
+        apiUrl: apiUrlInput.value.trim() || defaults.apiUrl,
+        model:  selectedModelValue && selectedModelValue !== "未能載入或無可用模型" ? selectedModelValue : defaults.model,
         outputLanguage: $("#outputLanguage").value.trim() || defaults.outputLanguage,
         panelWidth: Math.min(
             Math.max(parseInt($("#panelWidth").value, 10) || defaults.panelWidth, 320),
@@ -87,11 +201,28 @@ $("#save").onclick = () => {
     });
 };
 
-$("#reset").onclick = () => {
+$("#reset").onclick = async () => { // Made async for populateModelDropdown
     if (confirm("您確定要將所有設定恢復為預設值嗎？")) {
-        chrome.storage.sync.set(defaults, () => {
-            loadUI(defaults);
-            showSaveStatus("🔄 已恢復為預設值！", false);
-        });
+        await chrome.storage.sync.set(defaults); // Ensure set completes before loadUI
+        await loadUI(defaults); // loadUI is now async
+        showSaveStatus("🔄 已恢復為預設值！", false);
     }
 };
+
+refreshModelsButton.onclick = async () => {
+    // Pass the currently selected model value to try and preserve it
+    await populateModelDropdown(modelSelect.value);
+};
+
+apiProviderOllama.addEventListener('change', async () => {
+    await populateModelDropdown(); // Load models for the new provider
+});
+apiProviderLmstudio.addEventListener('change', async () => {
+    await populateModelDropdown(); // Load models for the new provider
+});
+apiUrlInput.addEventListener('blur', async () => {
+    await populateModelDropdown(modelSelect.value); // Refresh models if URL changed
+});
+
+// Initial load is handled by chrome.storage.sync.get(defaults, loadUI); at the top.
+// loadUI itself is now async and calls populateModelDropdown.

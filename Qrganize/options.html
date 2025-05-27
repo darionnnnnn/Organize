@@ -41,8 +41,12 @@
 
                 <div class="form-group">
                     <label for="model">AI 模型名稱:</label>
-                    <input type="text" id="model" name="model" placeholder="例如: qwen2:7b-instruct">
-                    <p class="input-hint">請填寫您希望在 Ollama 中使用的模型名稱 (需已在本地下載)。</p>
+                    <div class="model-selection-group">
+                        <select id="model" name="model" class="model-select"></select>
+                        <button type="button" id="refreshModels" class="button">重新整理模型</button>
+                        <span id="modelsLoadingIndicator" style="display: none;">正在載入模型...</span>
+                    </div>
+                    <p class="input-hint">請從列表中選擇一個模型。可使用旁邊的按鈕刷新列表。</p>
                 </div>
 
                 <div class="form-group">
