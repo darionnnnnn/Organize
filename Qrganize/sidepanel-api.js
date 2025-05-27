@@ -1,142 +1,263 @@
 // Qrganize/sidepanel-api.js
 import { stripThink, esc as escapeHTML, decodeHtmlEntities } from "./sidepanel-utils.js";
-import { getConfig, getChatUrl, getLevelText } from "./sidepanel-config.js";
+import { getConfig, getLevelText } from "./sidepanel-config.js"; // Removed getChatUrl
 import { S } from "./sidepanel-state.js";
 
-// fetchAI 函式 (保持不變)
-export async function fetchAI(promptText, userSignal = null) {
-    const cfg = getConfig();
-    const chatUrl = getChatUrl();
-    const abortCtrl = new AbortController();
-    const combinedSignal = abortCtrl.signal;
+async function makeApiRequest(url, method, headers, body, signal, providerName, timeoutMs, showErrDetail) {
+    const controller = new AbortController();
     let timeoutId = null;
 
-    const timeoutMs = cfg.aiTimeout * 1000;
+    // Use the provided signal directly if it's the only one, otherwise combine.
+    // The external signal (userSignal from fetchAI) should be able to abort the request.
+    // The internal timeout controller also needs to be able to abort.
+    // AbortSignal.any requires Node.js 20+ or specific browser versions.
+    // For broader compatibility, we'll manage combined signals manually if AbortSignal.any is not available or suitable.
+    // However, the original code used a simpler approach by just having the userSignal abort the controller.
+    // And the controller's signal was used for fetch. Let's stick to that pattern for now.
 
-    if (timeoutMs && timeoutMs > 0) {
+    const fetchSignal = controller.signal; // This signal will be used for the fetch request.
+
+    if (timeoutMs > 0) {
         timeoutId = setTimeout(() => {
-            abortCtrl.abort(new DOMException('TimeoutError', `TimeoutError (${cfg.aiTimeout}s)`));
+            // console.debug(`[API] Timeout for ${providerName} after ${timeoutMs}ms`);
+            controller.abort(new DOMException('TimeoutError', `TimeoutError (${timeoutMs / 1000}s)`));
         }, timeoutMs);
     }
-
-    const handleUserAbort = () => {
+    
+    const handleExternalAbort = () => {
+        // console.debug(`[API] External signal aborted for ${providerName}`);
         if (timeoutId) clearTimeout(timeoutId);
-        abortCtrl.abort(userSignal.reason || new DOMException('AbortError', 'UserAbort'));
+        controller.abort(signal.reason || new DOMException('AbortError', 'ExternalAbort'));
     };
 
-    if (userSignal) {
-        if (userSignal.aborted) {
+    if (signal) { // userSignal from fetchAI
+        if (signal.aborted) {
             if (timeoutId) clearTimeout(timeoutId);
-            throw userSignal.reason || new DOMException('AbortError', 'UserAbort (pre-aborted)');
+            throw signal.reason || new DOMException('AbortError', 'ExternalAbort (pre-aborted)');
         }
-        userSignal.addEventListener('abort', handleUserAbort, { once: true });
+        signal.addEventListener('abort', handleExternalAbort, { once: true });
     }
 
-    combinedSignal.addEventListener('abort', () => {
+    // Clean up external listener when fetchSignal aborts (e.g. due to timeout)
+    fetchSignal.addEventListener('abort', () => {
         if (timeoutId) clearTimeout(timeoutId);
-        if (userSignal) userSignal.removeEventListener('abort', handleUserAbort);
+        if (signal) signal.removeEventListener('abort', handleExternalAbort);
     }, { once: true });
 
-    let payload;
-    if (cfg.apiProvider === "lmstudio") {
-        payload = {
-            model: cfg.model, // LM Studio uses the model field for the pre-loaded model
-            messages: [
-                { role: "system", content: "你是一位專業的內容摘要助手。" },
-                { role: "user", content: promptText }
-            ],
-            temperature: 0.7, // Common temperature setting
-            stream: false // Assuming stream is false for LM Studio as well
-        };
-    } else { // Default to Ollama
-        payload = {
-            model: cfg.model,
-            messages: [
-                { role: "user", content: promptText }
-            ],
-            stream: false
-        };
-    }
 
     try {
-        const res = await fetch(chatUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-            signal: combinedSignal
+        const response = await fetch(url, {
+            method,
+            headers,
+            body: body ? JSON.stringify(body) : undefined,
+            signal: fetchSignal
         });
 
         if (timeoutId) clearTimeout(timeoutId);
-        if (userSignal) userSignal.removeEventListener('abort', handleUserAbort);
+        if (signal) signal.removeEventListener('abort', handleExternalAbort);
 
-        if (!res.ok) {
-            const responseBodyText = await res.text().catch(() => "");
-            let errorMsgText; // Declared here
-            if (cfg.showErr) {
-                const htmlErrorMatch = responseBodyText.match(/<center><h1>(.*?)<\/h1>/i);
-                const extractedError = htmlErrorMatch && htmlErrorMatch[1] ? escapeHTML(htmlErrorMatch[1]) : escapeHTML(responseBodyText.substring(0,100) + "...");
-                // For showErr, append the extracted error to the basic HTTP status
-                errorMsgText = `HTTP ${res.status} ${res.statusText}${extractedError ? ' - ' + extractedError : ''}`;
+
+        if (!response.ok) {
+            const responseBodyText = await response.text().catch(() => "");
+            let errorMsgText;
+            // Try to parse JSON error from cloud providers
+            let detail = "";
+            try {
+                const jsonError = JSON.parse(responseBodyText);
+                if (jsonError.error && jsonError.error.message) {
+                    detail = jsonError.error.message;
+                } else if (typeof jsonError === 'string') {
+                    detail = jsonError;
+                } else {
+                    detail = responseBodyText.substring(0, 200) + (responseBodyText.length > 200 ? "..." : "");
+                }
+            } catch (e) {
+                detail = responseBodyText.substring(0, 200) + (responseBodyText.length > 200 ? "..." : "");
+            }
+            
+            if (showErrDetail) {
+                errorMsgText = `API Error (${providerName}, HTTP ${response.status} ${response.statusText}): ${detail}`;
             } else {
-                errorMsgText = `AI 伺服器請求失敗 (HTTP ${res.status} ${res.statusText})。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。`;
+                errorMsgText = `AI 伺服器請求失敗 (${providerName}, HTTP ${response.status} ${response.statusText})。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。`;
             }
             throw new Error(errorMsgText);
         }
-
-        const rawResponseText = await res.text();
-        let jsonResponse; // Declare jsonResponse
-
-        // Conditionally decode and parse based on apiProvider
-        // cfg is already defined at the top of the function
-        if (cfg.apiProvider === "lmstudio") {
-            const decodedResponseText = decodeHtmlEntities(rawResponseText);
-            jsonResponse = JSON.parse(decodedResponseText);
-        } else { // Assuming 'ollama' or any other provider
-            jsonResponse = JSON.parse(rawResponseText);
+        // For LM Studio, response might be HTML escaped JSON
+        const rawResponseText = await response.text();
+        if (providerName === "lmstudio" && rawResponseText.includes("&quot;")) {
+            const decodedText = decodeHtmlEntities(rawResponseText);
+            return JSON.parse(decodedText);
         }
+        return JSON.parse(rawResponseText);
 
-        // LM Studio and Ollama have different response structures.
-        // LM Studio: jsonResponse.choices[0].message.content
-        // Ollama: jsonResponse.message.content
-        // This logic should use the 'jsonResponse' from above
-        if (cfg.apiProvider === "lmstudio") {
-            if (jsonResponse && jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message && typeof jsonResponse.choices[0].message.content === 'string') {
-                return jsonResponse.choices[0].message.content;
-            } else {
-                // Handle missing content for LM Studio
-                let errorToThrow;
-                if (cfg.showErr) {
-                    errorToThrow = `AI 伺服器回應 (LM Studio) 中缺少 'choices[0].message.content' 或其非字串 (實際回應: ${escapeHTML(JSON.stringify(jsonResponse).substring(0, 200))})`;
-                } else {
-                    errorToThrow = "AI 伺服器回應 (LM Studio) 格式錯誤。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
-                }
-                throw new Error(errorToThrow);
-            }
-        } else { // Ollama
-            if (jsonResponse && jsonResponse.message && typeof jsonResponse.message.content === 'string') {
-                return jsonResponse.message.content;
-            } else {
-                // Handle missing content for Ollama
-                let errorToThrow;
-                if (cfg.showErr) {
-                    errorToThrow = `AI 伺服器回應 (Ollama) 中缺少 'message.content' 或其非字串 (實際回應: ${escapeHTML(JSON.stringify(jsonResponse).substring(0, 200))})`;
-                } else {
-                    errorToThrow = "AI 伺服器回應 (Ollama) 格式錯誤。開啟設定中的「顯示詳細錯誤訊息」以獲取更多資訊。";
-                }
-                throw new Error(errorToThrow);
-            }
-        }
-
-    } catch (e) {
+    } catch (error) {
         if (timeoutId) clearTimeout(timeoutId);
-        if (userSignal) userSignal.removeEventListener('abort', handleUserAbort);
+        if (signal) signal.removeEventListener('abort', handleExternalAbort);
 
-        if (e.name === 'TimeoutError') {
-            throw new Error(`請求超時 (超過 ${cfg.aiTimeout} 秒)`);
+        if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+             // Check if it was the external signal or timeout
+            if (signal && signal.aborted) {
+                 // console.debug(`[API] Request aborted by external signal for ${providerName}:`, signal.reason);
+                 throw signal.reason; // Re-throw the original abort reason
+            } else {
+                 // console.debug(`[API] Request timed out for ${providerName}`);
+                 throw new Error(`請求 ${providerName} API 超時 (超過 ${timeoutMs / 1000} 秒)`);
+            }
         }
-        throw e;
+        // Re-throw other errors (including custom ones from !response.ok)
+        throw error;
     }
 }
+
+
+export async function fetchAI(promptContent, userSignal = null) {
+    const config = getConfig();
+    const { apiProvider, model, aiTimeout, apiUrl, showErr } = config;
+
+    let url = "";
+    let headers = { "Content-Type": "application/json" };
+    let requestBody = {};
+    let responseExtractor;
+
+    // Default system prompt for OpenAI-like APIs (optional)
+    const systemPrompt = "You are a helpful assistant specializing in text summarization and question answering based on provided content.";
+
+
+    switch (apiProvider) {
+        case "ollama":
+            url = `${apiUrl.replace(/\/+$/, '')}/api/chat`;
+            // Ollama's /api/chat expects a messages array.
+            // If promptContent is just the user's text, wrap it.
+            // The old Ollama payload was: { model: cfg.model, messages: [ { role: "user", content: promptText } ], stream: false };
+            // The very old one was: { model: cfg.model, prompt: promptContent, stream: false };
+            // The /api/generate endpoint uses "prompt", but /api/chat uses "messages".
+            // Let's assume promptContent is the full user message here.
+            requestBody = { 
+                model: model, 
+                messages: [{ role: "user", content: promptContent }], 
+                stream: false 
+            };
+            responseExtractor = data => {
+                if (data && data.message && typeof data.message.content === 'string') {
+                    return data.message.content;
+                }
+                throw new Error("Invalid Ollama response structure: 'message.content' missing or not a string.");
+            };
+            break;
+        case "lmstudio":
+            url = `${apiUrl.replace(/\/+$/, '')}/v1/chat/completions`;
+            requestBody = { 
+                model: model, // LM Studio uses this to identify the loaded model
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: promptContent }
+                ], 
+                stream: false 
+            };
+            responseExtractor = data => {
+                if (data && data.choices && data.choices[0] && data.choices[0].message && typeof data.choices[0].message.content === 'string') {
+                    return data.choices[0].message.content;
+                }
+                throw new Error("Invalid LM Studio response structure: 'choices[0].message.content' missing or not a string.");
+            };
+            break;
+        case "chatgpt":
+            url = "https://api.openai.com/v1/chat/completions";
+            if (!config.chatgptApiKey) throw new Error("ChatGPT API key is missing.");
+            headers["Authorization"] = `Bearer ${config.chatgptApiKey}`;
+            requestBody = { 
+                model: model, 
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: promptContent }
+                ], 
+                stream: false 
+            };
+            responseExtractor = data => data.choices[0].message.content;
+            break;
+        case "groq":
+            url = "https://api.groq.com/openai/v1/chat/completions";
+            if (!config.groqApiKey) throw new Error("Groq API key is missing.");
+            headers["Authorization"] = `Bearer ${config.groqApiKey}`;
+            requestBody = { 
+                model: model, 
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: promptContent }
+                ], 
+                stream: false 
+            };
+            responseExtractor = data => data.choices[0].message.content;
+            break;
+        case "gemini":
+            if (!config.geminiApiKey) throw new Error("Gemini API key is missing.");
+            if (!model) throw new Error("Gemini model name is missing (e.g., gemini-pro).");
+            url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.geminiApiKey}`;
+            requestBody = {
+                contents: [{ parts: [{ text: promptContent }] }],
+                generationConfig: {
+                    // temperature: 0.7, // Example
+                }
+            };
+            responseExtractor = data => {
+                if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
+                    return data.candidates[0].content.parts[0].text;
+                }
+                if (data.promptFeedback && data.promptFeedback.blockReason) {
+                    const safetyRatings = data.promptFeedback.safetyRatings ? JSON.stringify(data.promptFeedback.safetyRatings) : "No details";
+                    throw new Error(`Content blocked by Gemini due to: ${data.promptFeedback.blockReason}. Ratings: ${safetyRatings}`);
+                }
+                throw new Error("Invalid Gemini response structure or content blocked without explicit reason.");
+            };
+            break;
+        case "deepseek":
+            url = "https://api.deepseek.com/chat/completions";
+            if (!config.deepseekApiKey) throw new Error("DeepSeek API key is missing.");
+            headers["Authorization"] = `Bearer ${config.deepseekApiKey}`;
+            requestBody = { 
+                model: model, 
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: promptContent }
+                ], 
+                stream: false 
+            };
+            responseExtractor = data => data.choices[0].message.content;
+            break;
+        default:
+            throw new Error(`Unsupported API provider: ${apiProvider}`);
+    }
+
+    try {
+        const rawJsonResponseFromAPI = await makeApiRequest(url, "POST", headers, requestBody, userSignal, apiProvider, aiTimeout * 1000, showErr);
+        const extractedContent = responseExtractor(rawJsonResponseFromAPI);
+
+        if (config.directOutput) {
+            return extractedContent; // Always return plain text if directOutput is true
+        } else {
+            // If directOutput is false, we want structured JSON if possible.
+            // For Ollama and LMStudio, if they were prompted for JSON, their 'extractedContent' IS the JSON string.
+            // For cloud APIs, their 'extractedContent' is typically plain text unless specifically prompted for JSON string output.
+            // The current prompts for cloud APIs are for plain text summary.
+            // So, for cloud APIs or if the extracted content is not meant to be a JSON string, we return the extracted text.
+            if (apiProvider === 'ollama' || apiProvider === 'lmstudio') {
+                // Assuming that if not in directOutput mode, these providers were prompted to return a JSON string.
+                // The responseExtractor for these should yield that JSON string.
+                return extractedContent; // This IS the JSON string to be parsed by sidepanel-main.
+            } else {
+                // For cloud APIs, even if directOutput is false, we assume the prompt was for a good textual summary,
+                // not a specific JSON structure that parseAIJsonResponse would handle.
+                // Thus, we return the plain text content.
+                return extractedContent;
+            }
+        }
+    } catch (error) {
+        // console.error(`[API] Error in fetchAI for ${apiProvider}:`, error);
+        // Ensure the error is re-thrown to be caught by the caller (e.g., summarizeContent, askAIQuestion)
+        throw error; 
+    }
+}
+
 
 // buildSummaryPrompt 函式 (已修改)
 export function buildSummaryPrompt(title, content, isDirectOutputModeOverride) {
@@ -145,6 +266,10 @@ export function buildSummaryPrompt(title, content, isDirectOutputModeOverride) {
     // Determine the mode: use override if provided, otherwise use config setting
     const actualIsDirectOutputMode = typeof isDirectOutputModeOverride === 'boolean' ? isDirectOutputModeOverride : cfg.directOutput;
     let prompt;
+
+    // Note: The promptContent generated here might need to be tailored if results 
+    // are poor for specific providers (e.g., some models might benefit from different system prompts or formatting).
+    // The current structure is generic.
 
     if (actualIsDirectOutputMode) {
         prompt = `您是一位專業的內容分析師。請將以下提供的「原始內容」整理成一段或數段流暢易讀的摘要。
@@ -243,15 +368,22 @@ function preprocessInputForAI(rawText) {
     return result.trim();
 }
 
-// summarizeContent 函式 (保持不變)
+// summarizeContent 函式
 export async function summarizeContent(title, content, abortSignal) {
-    const prompt = buildSummaryPrompt(title, content, undefined);
+    const config = getConfig(); // Get config to check directOutput for prompt generation
+    const prompt = buildSummaryPrompt(title, content, config.directOutput); // Pass directOutput to buildSummaryPrompt
     S().lastSummaryPrompt = prompt; // Store the prompt in state
-    const rawAIResponse = await fetchAI(prompt, abortSignal);
-    return stripThink(rawAIResponse);
+    
+    // fetchAI will now return either a JSON string (for Ollama/LMStudio if !directOutput)
+    // or plain text (if directOutput or for cloud APIs).
+    const aiResponse = await fetchAI(prompt, abortSignal); 
+    
+    // stripThink should be safe for both JSON strings and plain text.
+    // If it's a JSON string, stripThink should ideally not modify it if there are no "thinking..." prefixes.
+    return stripThink(aiResponse); 
 }
 
-// buildQAPrompt 函式 (已修改)
+// buildQAPrompt 函式
 export function buildQAPrompt(question, pageTitle, qaHistory, summaryKeyPoints, pageSourceText) {
     const cfg = getConfig();
     let contextString = `關於網頁「${pageTitle || '未知標題'}」的內容。\n`;
@@ -306,18 +438,20 @@ ${question}`;
 
 }
 
-// askAIQuestion 函式 (保持不變)
+// askAIQuestion 函式
 export async function askAIQuestion(question, pageTitle, qaHistory, summaryKeyPoints, pageSourceText) {
     const prompt = buildQAPrompt(question, pageTitle, qaHistory, summaryKeyPoints, pageSourceText);
-    const rawAiResponse = await fetchAI(prompt, null);
+    // For Q&A, we generally expect plain text answers from fetchAI.
+    // The new fetchAI logic should return plain text for QA prompts from all providers.
+    const aiResponseText = await fetchAI(prompt, null); 
     return {
-        answer: stripThink(rawAiResponse),
-        rawAnswer: rawAiResponse,
+        answer: stripThink(aiResponseText), // stripThink on the plain text answer
+        rawAnswer: aiResponseText, // Store the potentially stripped plain text
         prompt: prompt
     };
 }
 
-// getArticleContent 函式 (保持不變)
+// getArticleContent 函式
 export async function getArticleContent() {
     const cfg = getConfig();
     return new Promise((resolve, reject) => {

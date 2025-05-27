@@ -73,10 +73,11 @@ async function runSummarize(selectionText = "") {
         updateTitle(article.title);
         showLoadingState("AI 摘要中…");
 
-        StateAccessor().lastSummaryPrompt = buildSummaryPrompt(article.title, StateAccessor().summarySourceText);
+        const cfg = getConfig(); // Get config early for prompt building and general use
+        StateAccessor().lastSummaryPrompt = buildSummaryPrompt(article.title, StateAccessor().summarySourceText, cfg.directOutput); // Pass directOutput here
         StateAccessor().summaryRawAI = await summarizeContent(article.title, StateAccessor().summarySourceText, StateAccessor().currentAbortController.signal);
 
-        const cfg = getConfig(); // Renamed from currentSettings for consistency
+        // const cfg = getConfig(); // Already fetched above
         let summaryButtonsHTML = "";
         if (cfg.showErr) {
             summaryButtonsHTML = `<div class="action-buttons-summary">

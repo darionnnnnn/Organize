@@ -127,6 +127,11 @@ h2 .icon {
     line-height: 1.4;
 }
 
+/* Styles for the API key groups, though most is inherited from .form-group */
+.api-key-group {
+    /* Add specific styling here if needed, e.g., margin or padding adjustments */
+}
+
 .radio-group label {
     margin-right: 25px; /* More space between radio options */
     font-weight: normal;
