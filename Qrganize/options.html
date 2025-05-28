@@ -26,11 +26,39 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="apiProviderOllama">API 提供者 (API Provider):</label>
-                    <div class="radio-group">
-                        <label><input type="radio" name="apiProvider" value="ollama" id="apiProviderOllama"> Ollama</label>
-                        <label><input type="radio" name="apiProvider" value="lmstudio" id="apiProviderLmstudio"> LM Studio</label>
-                    </div>
+                    <label for="apiProvider">API 提供者 (API Provider):</label>
+                    <select id="apiProvider" name="apiProvider">
+                        <option value="ollama">Ollama</option>
+                        <option value="lmstudio">LM Studio</option>
+                        <option value="chatgpt">ChatGPT</option>
+                        <option value="groq">Groq</option>
+                        <option value="gemini">Gemini</option>
+                        <option value="deepseek">DeepSeek</option>
+                    </select>
+                </div>
+
+                <div class="form-group api-key-group chatgpt-key-group" style="display: none;">
+                    <label for="chatgptApiKey">ChatGPT API Key:</label>
+                    <input type="text" id="chatgptApiKey" name="chatgptApiKey" placeholder="Enter your ChatGPT API Key">
+                    <p class="input-hint">Get your key from <a href="#openai-key-info" target="_blank">OpenAI dashboard</a>.</p>
+                </div>
+
+                <div class="form-group api-key-group groq-key-group" style="display: none;">
+                    <label for="groqApiKey">Groq API Key:</label>
+                    <input type="text" id="groqApiKey" name="groqApiKey" placeholder="Enter your Groq API Key">
+                    <p class="input-hint">Get your key from <a href="#groq-key-info" target="_blank">GroqCloud dashboard</a>.</p>
+                </div>
+
+                <div class="form-group api-key-group gemini-key-group" style="display: none;">
+                    <label for="geminiApiKey">Gemini API Key:</label>
+                    <input type="text" id="geminiApiKey" name="geminiApiKey" placeholder="Enter your Gemini API Key">
+                    <p class="input-hint">Get your key from <a href="#gemini-key-info" target="_blank">Google AI Studio</a>.</p>
+                </div>
+
+                <div class="form-group api-key-group deepseek-key-group" style="display: none;">
+                    <label for="deepseekApiKey">DeepSeek API Key:</label>
+                    <input type="text" id="deepseekApiKey" name="deepseekApiKey" placeholder="Enter your DeepSeek API Key">
+                    <p class="input-hint">Get your key from <a href="#deepseek-key-info" target="_blank">DeepSeek platform</a>.</p>
                 </div>
 
                 <div class="form-group">
@@ -46,7 +74,8 @@
                         <button type="button" id="refreshModels" class="button">重新整理模型</button>
                         <span id="modelsLoadingIndicator" style="display: none;">正在載入模型...</span>
                     </div>
-                    <p class="input-hint">請從列表中選擇一個模型。可使用旁邊的按鈕刷新列表。</p>
+                    <input type="text" id="cloudModelNameInput" name="cloudModelNameInput" class="model-select" style="display:none; margin-top: 8px;" placeholder="例如: gpt-4o-mini, llama3-70b-8192">
+                    <p class="input-hint">請從列表中選擇一個模型。可使用旁邊的按鈕刷新列表。對於Ollama/LM Studio以外的服務，請手動輸入模型名稱（例如 gpt-4-turbo, llama3-70b-8192, gemini-1.5-pro-latest, deepseek-chat）。</p>
                 </div>
 
                 <div class="form-group">
@@ -121,8 +150,9 @@
                 <h3>一、核心摘要功能</h3>
                 <ul>
                     <li><strong>自動內文擷取：</strong> 智慧識別並提取網頁主要閱讀內容，過濾廣告、導航等干擾元素。</li>
-                    <li><strong>本地 Ollama AI 整合：</strong> 完全使用您在本地部署的 Ollama 服務及選定模型進行摘要，確保資料隱私與模型選擇的自主性。</li>
-                    <li><strong>結構化摘要呈現：</strong> AI 生成的摘要將以結構化 JSON 格式回傳，並在側邊欄中以下列方式呈現：
+                    <li><strong>彈性的 AI 服務整合：</strong> 支援多種 AI 服務，包括本地部署的 Ollama、LM Studio，以及雲端 API 服務如 ChatGPT、Groq、Gemini 和 DeepSeek。您可以根據需求選擇合適的服務，本地服務確保資料隱私，雲端服務則可能提供更強大的模型。</li>
+                    <li><strong>多樣化的摘要風格與重點擷取：</strong> 透過整合包括 Ollama、LM Studio 以及 ChatGPT、Groq、Gemini、DeepSeek 在內的多種 AI 技術，本擴充功能致力於提供更智能的摘要體驗。不同的模型與服務在處理不同類型的文章（例如學術論文、新聞報導、產品評論等）時，可能展現出不同的分析角度和重點擷取策略，從而為使用者呈現更多元和深入的摘要結果。</li>
+                    <li><strong>結構化摘要呈現 (主要適用於 Ollama/LM Studio)：</strong> 當使用 Ollama 或 LM Studio 且「AI結果直接輸出」未開啟時，AI 生成的摘要將以結構化 JSON 格式回傳，並在側邊欄中以下列方式呈現：
                         <ul>
                             <li><em>重點標題列表：</em> 清晰列出所有摘要重點的標題，方便快速概覽。</li>
                             <li><em>點擊導航：</em> 點擊任一標題，即可平滑捲動至下方對應的詳細說明區塊。</li>
@@ -193,9 +223,12 @@
                 <p>您可以透過上方的設定表單，自訂以下選項以符合您的使用習慣：</p>
                 <ul>
                     <li>摘要內容的詳細程度 (精簡/中等/詳細)。</li>
-                    <li>您的本地 Ollama API 服務位址。</li>
-                    <li>希望使用的 Ollama AI 模型名稱。</li>
+                    <li><strong>API 提供者 (API Provider):</strong> 新增支援多種 AI服務，包括本地部署的 Ollama、LM Studio，以及雲端服務如 ChatGPT、Groq、Gemini 和 DeepSeek。選擇不同的提供者會影響摘要的來源與特性。</li>
+                    <li><strong>API 服務位址 (API Base URL):</strong> 此設定主要用於 Ollama 及 LM Studio，指定其本地服務的網址。對於 ChatGPT 等雲端服務，此欄位通常不需填寫，擴充功能會使用其預設服務位址。</li>
+                    <li><strong>AI 模型名稱 (AI Model Name):</strong> 對於 Ollama 和 LM Studio，您可以刷新並從下拉列表中選擇模型。對於 ChatGPT、Groq、Gemini、DeepSeek 等雲端服務，您通常需要手動輸入該服務支援的具體模型名稱 (例如：`gpt-4o-mini`, `llama3-groq-70b-8192-tool-use-preview`, `gemini-1.5-flash-latest`, `deepseek-chat`)。請參考各 API 提供者的文件以獲取可用模型列表。</li>
+                    <li><strong>API 金鑰 (API Keys):</strong> 當選擇 ChatGPT、Groq、Gemini 或 DeepSeek 等雲端 API 時，您需要在此輸入對應服務的 API 金鑰。這些金鑰用於驗證並授權擴充功能使用您的帳戶進行摘要。請至各服務官方網站獲取金鑰。</li>
                     <li>AI 輸出內容的語言 (例如：繁體中文、English)。</li>
+                    <li>請注意：不同的 AI 提供者及模型，其摘要的品質、風格和深度可能有所不同。建議多方嘗試以找到最符合您需求的組合。</li>
                     <li>側邊摘要面板的預設字體大小 (小/中/大，中為標準)。</li>
                     <li>側邊摘要面板的預設寬度。</li>
                     <li>AI 請求的超時時間（單位：秒）。</li>
@@ -208,9 +241,9 @@
             <div class="help-category">
                 <h3>五、技術提示與需求</h3>
                 <ul>
-                    <li><strong>本地 Ollama 環境：</strong> 您必須已在您的電腦上成功安裝並運行 Ollama 服務。</li>
-                    <li><strong>AI 模型準備：</strong> 請確保在「AI 模型名稱」設定中指定的模型，已經透過 Ollama 指令 (如 `ollama pull your_model_name`) 下載至您的本地 Ollama 環境中。</li>
-                    <li><strong>API 連線：</strong> 擴充功能需要能夠成功連線到您所設定的「Ollama API 位址」。 同時，背景服務會定期 (每20秒) ping Ollama API 的 `/api/tags` 端點以嘗試保持連線。</li>
+                    <li><strong>本地 AI 環境 (Ollama/LM Studio)：</strong> 若選擇 Ollama 或 LM Studio，您必須已在您的電腦上成功安裝並運行相應的服務。</li>
+                    <li><strong>AI 模型準備：</strong> 若使用 Ollama 或 LM Studio，請確保在「AI 模型名稱」設定中指定的模型，已經透過相應方式 (如 `ollama pull your_model_name`) 下載至您的本地環境中。若使用 ChatGPT 等雲端服務，請確保您輸入的模型名稱正確且帳戶有權限使用該模型。</li>
+                    <li><strong>API 連線與金鑰：</strong> 擴充功能需要能夠成功連線到您所設定的「API 服務位址」(主要針對 Ollama/LM Studio)。對於雲端服務，請確保 API Key 正確且網路通暢。對於 Ollama，背景服務會定期 (每20秒) ping API 的 `/api/tags` 端點以嘗試保持連線 (若選擇Ollama為提供者)。</li>
                     <li><strong>UTF-8 編碼：</strong> 為確保最佳相容性與顯示效果，建議您的作業系統、瀏覽器以及所瀏覽的網頁均優先使用 UTF-8 編碼。本擴充功能所有相關檔案（HTML, CSS, JS）均使用 UTF-8 編碼儲存。</li>
                     <li><strong>內容擷取限制：</strong> 對於結構極端複雜或大量依賴 JavaScript 動態載入內容的網頁，主要內文的擷取效果可能會受到一定限制。</li>
                     <li><strong>超時設定：</strong> 若經常遇到 504 Gateway Time-out 錯誤，除了檢查 Ollama 服務效能，也可嘗試在此設定頁面中適當增加「AI請求超時時間」。但請注意，前端超時無法解決後端伺服器 (如 Nginx) 本身的超時問題。</li>

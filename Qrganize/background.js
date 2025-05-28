@@ -90,12 +90,12 @@ const keepAliveInterval = setInterval(() => {
                 .catch(err => {
                     // console.debug("保持連線 Ping 錯誤 (Ollama):", err.message);
                 });
-        } else if (apiProvider === "lmstudio") {
-            // 對於 LM Studio，不執行任何 Ping 操作
-            // console.debug("API Provider 為 LM Studio，跳過 Ping。");
+        } else {
+            // console.debug(`Keep-alive ping skipped for non-Ollama provider: ${apiProvider}`);
+            // For other providers like lmstudio, chatgpt, etc., no ping is needed.
         }
     });
-}, 20000);
+}, 20000); // Runs every 20 seconds
 
 // --- 離屏文件邏輯 ---
 const OFFSCREEN_DOCUMENT_PATH = 'offscreen.html';
