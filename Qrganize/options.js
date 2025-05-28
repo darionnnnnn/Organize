@@ -19,9 +19,11 @@ const apiKeyGroups = {
 
 // Model related elements
 const modelSelect = $("#model");
+const cloudModelNameInput = $("#cloudModelNameInput"); // New input field for cloud models
+const modelDropdownGroup = $(".model-selection-group"); // The div containing the dropdown and refresh button
 const refreshModelsButton = $("#refreshModels");
 const modelsLoadingIndicator = $("#modelsLoadingIndicator");
-const modelFormGroup = $(".model-selection-group").closest(".form-group"); // The whole form group for models
+// const modelFormGroup = $(".model-selection-group").closest(".form-group"); // This is the overall form group, still useful for general visibility if needed.
 
 // 預設設定值
 const defaults = {
@@ -52,20 +54,19 @@ function updateApiKeyFieldsVisibility(selectedProvider) {
         apiKeyGroups[selectedProvider].style.display = "block";
     }
 
-    // Show/hide model selection based on provider
+    // Show/hide model selection based on provider & control visibility of specific model inputs
     if (selectedProvider === 'ollama' || selectedProvider === 'lmstudio') {
-        if (modelFormGroup) modelFormGroup.style.display = "block";
+        if (modelDropdownGroup) modelDropdownGroup.style.display = "flex"; // Show dropdown and refresh button
+        if (cloudModelNameInput) cloudModelNameInput.style.display = "none"; // Hide text input for cloud models
         if (apiUrlInput.closest(".form-group")) apiUrlInput.closest(".form-group").style.display = "block"; // Show API URL for local
-        refreshModelsButton.disabled = false;
-        modelSelect.disabled = false;
-    } else {
-        // For cloud APIs, hide model selection/refresh, user will input manually
-        // Also hide API URL input as it's not used for cloud providers directly by user
-        if (modelFormGroup) modelFormGroup.style.display = "none";
+        if (refreshModelsButton) refreshModelsButton.disabled = false;
+        if (modelSelect) modelSelect.disabled = false;
+    } else { // Cloud providers (ChatGPT, Groq, Gemini, DeepSeek)
+        if (modelDropdownGroup) modelDropdownGroup.style.display = "none"; // Hide dropdown and refresh button
+        if (cloudModelNameInput) cloudModelNameInput.style.display = "block"; // Show text input for cloud models
         if (apiUrlInput.closest(".form-group")) apiUrlInput.closest(".form-group").style.display = "none"; // Hide API URL for cloud
-        refreshModelsButton.disabled = true;
-        modelSelect.disabled = true;
-        modelSelect.innerHTML = '<option value="">請手動輸入模型名稱</option>';
+        if (refreshModelsButton) refreshModelsButton.disabled = true; // Effectively hidden by parent display:none
+        if (modelSelect) modelSelect.disabled = true; // Effectively hidden
     }
 }
 
@@ -111,22 +112,25 @@ async function loadUI(cfg) { // <<< MODIFIED HERE
     $("#directOutputToggle").checked = typeof cfg.directOutput === 'boolean' ? cfg.directOutput : defaults.directOutput;
     $("#pinQuestionAreaToggle").checked = typeof cfg.pinQuestionArea === 'boolean' ? cfg.pinQuestionArea : defaults.pinQuestionArea;
 
-    // Update visibility of API key fields based on loaded provider
+    // Update visibility of API key fields and model input types based on loaded provider
     updateApiKeyFieldsVisibility(apiProviderSelect.value);
 
-    // Populate models after other settings are loaded and UI visibility is set
-    await populateModelDropdown(cfg.model);
+    // Populate models or set model text input after other settings are loaded and UI visibility is set
+    if (apiProviderSelect.value === "ollama" || apiProviderSelect.value === "lmstudio") {
+        await populateModelDropdown(cfg.model); // Populates the modelSelect dropdown
+        cloudModelNameInput.value = ""; // Clear cloud input when loading a local provider
+    } else {
+        cloudModelNameInput.value = cfg.model || ""; // Sets the cloudModelNameInput text
+        modelSelect.innerHTML = ""; // Clear dropdown when loading a cloud provider
+    }
 }
 
 async function fetchAvailableModels() {
     const currentApiProvider = apiProviderSelect.value;
     const currentApiUrl = apiUrlInput.value.trim();
 
-    // For cloud services, don't fetch models, user inputs manually
+    // This function is only for Ollama/LM Studio, so return early if not them.
     if (currentApiProvider !== "ollama" && currentApiProvider !== "lmstudio") {
-        // modelSelect.innerHTML = '<option value="">請手動輸入模型名稱</option>'; // Already handled by updateApiKeyFieldsVisibility
-        // refreshModelsButton.disabled = true; // Already handled
-        // modelSelect.disabled = true; // Already handled
         return [];
     }
 
@@ -195,29 +199,11 @@ async function fetchAvailableModels() {
 }
 
 async function populateModelDropdown(selectedModelFromStorage) {
+    // This function is now only for Ollama/LM Studio.
+    // Cloud model input is handled by cloudModelNameInput directly.
     const currentApiProvider = apiProviderSelect.value;
-
     if (currentApiProvider !== "ollama" && currentApiProvider !== "lmstudio") {
-        // For cloud APIs, ensure the "manual input" message is set if not already by updateApiKeyFieldsVisibility
-        if (modelSelect.options.length === 0 || modelSelect.options[0].textContent !== "請手動輸入模型名稱") {
-             modelSelect.innerHTML = '<option value="">請手動輸入模型名稱</option>';
-        }
-        // If there was a stored model (e.g. gpt-4), set it as the value for the input-like select
-        if (selectedModelFromStorage) {
-            // We need to create an option for it to be "selected" if we want to display it
-            // This is a bit of a hack since the select is normally for choosing from a list
-            let existingOption = modelSelect.querySelector(`option[value="${selectedModelFromStorage}"]`);
-            if (!existingOption) {
-                 const tempOption = document.createElement("option");
-                 tempOption.value = selectedModelFromStorage;
-                 tempOption.textContent = selectedModelFromStorage;
-                 modelSelect.appendChild(tempOption); // Add it temporarily
-            }
-            modelSelect.value = selectedModelFromStorage;
-        } else {
-             modelSelect.value = ""; // Ensure it's cleared if no stored model
-        }
-        return; // Don't try to populate with fetched models
+        return; 
     }
 
     // Proceed for Ollama/LM Studio
@@ -267,24 +253,25 @@ $("#save").onclick = () => {
     const fontChecked = $("[name=font]:checked");
     const aiTimeoutValue = parseInt($("#aiTimeout").value, 10);
     const currentApiProvider = apiProviderSelect.value;
+    let modelToSave = "";
 
-    let selectedModelValue = modelSelect.value;
-    // For cloud providers, if the "manual input" placeholder is selected, treat as empty/default.
-    if ((currentApiProvider !== "ollama" && currentApiProvider !== "lmstudio") &&
-        (selectedModelValue === "" || modelSelect.options[0]?.textContent === "請手動輸入模型名稱" && modelSelect.selectedIndex === 0)) {
-        selectedModelValue = defaults.model; // Or consider saving an empty string if appropriate
-    } else if ((currentApiProvider === "ollama" || currentApiProvider === "lmstudio") &&
-               (selectedModelValue === "" || selectedModelValue === "未能載入或無可用模型")) {
-        selectedModelValue = defaults.model; // Fallback if no model was selectable
+    if (currentApiProvider === "ollama" || currentApiProvider === "lmstudio") {
+        modelToSave = modelSelect.value;
+        if (modelToSave === "" || modelToSave === "未能載入或無可用模型") {
+            modelToSave = defaults.model; // Fallback to default local model if selection is invalid
+        }
+    } else { // Cloud provider
+        modelToSave = cloudModelNameInput.value.trim();
+        // No default model for cloud; if it's empty, it's empty.
+        // Could add validation here if a model name is mandatory for cloud.
     }
-
 
     const data = {
         detail: detailChecked ? detailChecked.value : defaults.detail,
         font:   fontChecked ? fontChecked.value : defaults.font,
         apiProvider: currentApiProvider,
         apiUrl: apiUrlInput.value.trim() || defaults.apiUrl,
-        model:  selectedModelValue, // Use the processed selectedModelValue
+        model:  modelToSave,
         outputLanguage: $("#outputLanguage").value.trim() || defaults.outputLanguage,
         panelWidth: Math.min(
             Math.max(parseInt($("#panelWidth").value, 10) || defaults.panelWidth, 320),
@@ -330,13 +317,21 @@ refreshModelsButton.onclick = async () => {
 // Event listener for API Provider change
 apiProviderSelect.addEventListener('change', async function() {
     updateApiKeyFieldsVisibility(this.value);
-    // For Ollama/LM Studio, try to populate models. For others, model list is cleared/set to manual by updateApiKeyFieldsVisibility.
+    // For Ollama/LM Studio, populate the dropdown. For cloud, set the text input.
     if (this.value === "ollama" || this.value === "lmstudio") {
-        await populateModelDropdown(); // Pass no specific model, so it tries to pick first or default
-    } else {
-        // Ensure model dropdown is correctly set for manual input, even if populateModelDropdown isn't fully run
-        modelSelect.innerHTML = '<option value="">請手動輸入模型名稱</option>';
-        modelSelect.value = ""; // Clear any previous selection
+        cloudModelNameInput.value = ""; // Clear cloud input
+        await populateModelDropdown(); // Fetches and populates modelSelect
+    } else { // Cloud provider
+        modelSelect.innerHTML = ""; // Clear dropdown
+        modelSelect.value = "";
+        // Load the model name previously saved for this specific cloud provider, if any
+        chrome.storage.sync.get(["model", "apiProvider"], (storage) => {
+            if (storage.apiProvider === this.value && storage.model) {
+                cloudModelNameInput.value = storage.model;
+            } else {
+                cloudModelNameInput.value = ""; // Or a default cloud model placeholder if desired
+            }
+        });
     }
 });
 
