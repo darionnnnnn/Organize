@@ -83,3 +83,9 @@
 *   **本地 Ollama：** 您必須已在電腦上成功安裝並運行 Ollama 服務，並下載了希望使用的模型。
 *   **API 連線：** 擴充功能需要能成功連線到您設定的 Ollama API 位址。背景服務會定期 ping API 以嘗試保持連線。
 *   **內容擷取：** 對於結構複雜或大量使用 JavaScript 動態載入內容的網頁，內文擷取效果可能有限。
+
+## Icon
+
+表情符號圖形來自開源專案 Twemoji，圖形版權歸 2020 Twitter, Inc. 和其他貢獻者所有。  
+本圖形依據 [Creative Commons Attribution 4.0 International License (CC-BY 4.0)](https://creativecommons.org/licenses/by/4.0/) 授權使用。
+

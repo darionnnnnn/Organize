@@ -1,14 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Ollama 本地 AI 網頁重點摘要",
-  "description": "擷取網頁主文並用本地 Ollama AI 產生重點摘要，支援問答與自訂設定。",
+  "name": "AI 網頁重點摘要",
+  "description": "擷取網頁內容並用 AI 產生重點摘要，支援問答與自訂設定。",
   "version": "1.7",
   "permissions": [
     "scripting",
     "activeTab",
     "contextMenus",
     "storage",
-    "tabs",
     "clipboardWrite",
     "offscreen"
   ],

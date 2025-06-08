@@ -9,7 +9,7 @@
 <body>
 <div class="container">
     <header>
-        <h1>Ollama 網頁重點摘要 - 設定與說明</h1>
+        <h1>網頁重點摘要 - 設定與說明</h1>
     </header>
 
     <main>
@@ -84,7 +84,7 @@
                     <p class="input-hint">指定 AI 回應內容的目標語言。</p>
                 </div>
                 <div class="form-group">
-                    <label for="font-small">側邊欄字體大小:</label>
+                    <label for="font-small">字體大小:</label>
                     <div class="radio-group">
                         <label><input type="radio" name="font" value="small" id="font-small"> 小</label>
                         <label><input type="radio" name="font" value="medium" id="font-medium"> 中 (預設)</label>
@@ -102,7 +102,7 @@
                 <div class="form-group">
                     <label for="aiTimeout">AI請求超時時間 (秒):</label>
                     <input type="number" id="aiTimeout" name="aiTimeout" min="5" step="1" placeholder="例如: 120">
-                    <p class="input-hint">向 Ollama AI 發送請求的等待超時時間 (單位：秒)。預設 120 秒。設定過短可能導致複雜請求因處理不及而失敗。</p>
+                    <p class="input-hint">向 AI 發送請求的等待超時時間 (單位：秒)。預設 120 秒。設定過短可能導致複雜請求因處理不及而失敗。</p>
                 </div>
 
                 <div class="form-group switch-group">
@@ -115,7 +115,7 @@
                 </div>
 
                 <div class="form-group switch-group">
-                    <label for="directOutputToggle">AI結果直接輸出(小模型建議直接開啟):</label>
+                    <label for="directOutputToggle">AI結果直接輸出(使用Ollama搭配小模型建議開啟):</label>
                     <label class="switch">
                         <input type="checkbox" id="directOutputToggle" name="directOutputToggle">
                         <span class="slider round"></span>
